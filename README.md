@@ -6,6 +6,16 @@ Agent Runtime Kit 将模型调用、工具执行和会话状态组织成一套�
 
 中文 | [English](README.en.md)
 
+## 浏览器工作台
+
+通过本机浏览器提交任务、观察工具调用、处理人工审批并导出运行报告。Web v0.1 支持 **Loop + Local**；网关持有 Core 连接，页面刷新后可继续观察原任务。使用方法见[工作台说明](docs/web-workbench.md)。
+
+![KitAgent 浏览器工作台与运行报告](docs/assets/web-workbench-overview.png)
+
+*离线演示采用脚本化 Provider，Core、TCP、权限和工具链均真实运行。图中的 Web 模式不包含 Graph 持久恢复或 Kubernetes 沙箱。*
+
+[观看工作台演示](docs/assets/web-workbench-demo.webm) · [查看审批界面](docs/assets/web-workbench-approval.png)
+
 [![CI](https://github.com/zed123214/agent-runtime-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/zed123214/agent-runtime-kit/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
 [![Pydantic](https://img.shields.io/badge/Pydantic-v2-E92063)](https://docs.pydantic.dev/)
