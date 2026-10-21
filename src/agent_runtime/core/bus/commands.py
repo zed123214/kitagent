@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, Discriminator, Field
 
 from agent_runtime.core.session.model import SessionMode, SessionStatus
+from agent_runtime.core.session.result import RunGetResultResult as RunGetResultResult
 
 
 class PingCommand(BaseModel):
@@ -16,6 +17,27 @@ class PongResult(BaseModel):
     server_version: str
     uptime_ms: int
     received_at: str  # ISO 8601
+
+
+class CoreDescribeCommand(BaseModel):
+    type: Literal["core.describe"] = "core.describe"
+
+
+class CoreDescribeResult(BaseModel):
+    server_version: str
+    web_protocol_version: int = 1
+    engine: str
+    checkpoint_backend: str
+    sandbox_backend: str
+    durable_chat: bool
+    model: str
+    working_directory: str
+
+
+class RunGetResultCommand(BaseModel):
+    type: Literal["run.get_result"] = "run.get_result"
+    session_id: str
+    run_id: str
 
 
 class AgentRunCommand(BaseModel):
@@ -145,6 +167,8 @@ class SessionCompactResult(BaseModel):
 # 根据 type 字段决定命令类型的判别联合
 Command = Annotated[
     PingCommand
+    | CoreDescribeCommand
+    | RunGetResultCommand
     | AgentRunCommand
     | EventSubscribeCommand
     | SessionCreateCommand

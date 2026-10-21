@@ -17,3 +17,9 @@ build/
 *.log
 workspace/
 artifacts/sandbox-validation/
+node_modules/
+*.tsbuildinfo
+src/agent_runtime/web/static/
+frontend/test-results/
+frontend/playwright-report/
+artifacts/web-validation/

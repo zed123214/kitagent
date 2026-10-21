@@ -21,11 +21,14 @@ import agent_runtime
 from agent_runtime.core.bus.commands import (
     AgentRunCommand,
     AgentRunResult,
+    CoreDescribeResult,
     EventSubscribeCommand,
     EventSubscribeResult,
     PermissionRespondCommand,
     PermissionRespondResult,
     PongResult,
+    RunGetResultCommand,
+    RunGetResultResult,
     RunGetStateCommand,
     RunGetStateResult,
     SessionCloseCommand,
@@ -174,6 +177,25 @@ class CoreApp:
         )
 
     # 将 EventBus 事件写入 trace（作为 EventBus 订阅者）
+    async def _describe_handler(self, params: dict[str, Any]) -> CoreDescribeResult:
+        assert self._config is not None
+        config = self._config
+        return CoreDescribeResult(
+            server_version=agent_runtime.__version__,
+            engine=config.agent.engine,
+            checkpoint_backend=config.graph.checkpoint_backend,
+            sandbox_backend=config.sandbox.backend,
+            durable_chat=self._durable_enabled,
+            model=config.llm.default_model,
+            working_directory=str(Path.cwd()),
+        )
+
+    async def _run_get_result_handler(self, params: dict[str, Any]) -> RunGetResultResult:
+        assert self._sessions is not None
+        cmd = RunGetResultCommand.model_validate(params)
+        self._require_current_connection_owns(cmd.session_id)
+        return self._sessions.get_run_result(cmd.session_id, cmd.run_id)
+
     async def _trace_event_handler(self, event: BaseModel) -> None:
         assert self._trace is not None
         event_dict = redact_sensitive_fields(event.model_dump())
@@ -1314,6 +1336,8 @@ class CoreApp:
         )
         self._server = server
         server.register("core.ping", self._ping_handler)
+        server.register("core.describe", self._describe_handler)
+        server.register("run.get_result", self._run_get_result_handler)
         server.register("agent.run", self._agent_run_handler)
         server.register("event.subscribe", self._subscribe_handler)
         server.register("session.create", self._session_create_handler)
