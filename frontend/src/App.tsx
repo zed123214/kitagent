@@ -140,11 +140,24 @@ function Chat({
 }) {
   const key = `agentrt:draft:${view.instance_id}:${view.session_id}`;
   const [draft, setDraft] = useState(sessionStorage.getItem(key) || "");
+  const draftRevision = useRef(0);
+  const mounted = useRef(true);
   const [newContent, setNewContent] = useState(false);
   const [sendError, setSendError] = useState("");
   const scrolling = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
   const composing = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  function editDraft(text: string) {
+    draftRevision.current++;
+    setDraft(text);
+    sessionStorage.setItem(key, text);
+  }
   const messages = useMemo(() => Object.values(view.messages), [view.messages]);
   const running = ["running", "approval", "syncing"].includes(view.state);
   const runtime = useExternalStoreRuntime<Message>({
@@ -195,8 +208,13 @@ function Chat({
       setSendError("单条消息不能超过 32 KiB。");
       return;
     }
+    const submittedRevision = draftRevision.current;
     const sent = await onSend(draft);
-    if (sent) {
+    if (
+      sent &&
+      mounted.current &&
+      draftRevision.current === submittedRevision
+    ) {
       setDraft("");
       sessionStorage.removeItem(key);
       setSendError("");
@@ -254,8 +272,7 @@ function Chat({
                 onClick={() => {
                   const text =
                     "检查样例 Python 仓库，执行检查脚本并生成检查报告。";
-                  setDraft(text);
-                  sessionStorage.setItem(key, text);
+                  editDraft(text);
                 }}
               >
                 <FileText size={18} />
@@ -310,8 +327,7 @@ function Chat({
             value={draft}
             rows={3}
             onChange={(event) => {
-              setDraft(event.target.value);
-              sessionStorage.setItem(key, event.target.value);
+              editDraft(event.target.value);
             }}
             onCompositionStart={() => {
               composing.current = true;
@@ -510,6 +526,10 @@ function ReportPanel({
           {labels[report.result.status]}
         </span>
       </div>
+      <p className="detail-label">本轮任务</p>
+      <p className="markdown" data-testid="report-task">
+        {report.title}
+      </p>
       <div className="report-stats">
         <div>
           <strong>{report.tools.length}</strong>
@@ -902,7 +922,14 @@ export default function App() {
                 "上次请求的接收状态待确认，请查询原请求；不会自动重发。"}
             </span>
             {wb.unknown && (
-              <button onClick={() => void wb.checkPending()}>查询原请求</button>
+              <>
+                <button onClick={() => void wb.checkPending()}>
+                  查询原请求
+                </button>
+                <button disabled={wb.busy} onClick={wb.leavePending}>
+                  解除等待（不重发）
+                </button>
+              </>
             )}
             {wb.view?.state === "sync_error" && (
               <button onClick={() => void wb.synchronize()}>

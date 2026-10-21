@@ -97,8 +97,19 @@ class WebSession:
                 },
             )
             record.update(state="executed", run_id=reply["run_id"])
+            run_id = str(reply["run_id"])
+            run = self.projection.data["runs"].get(run_id, {"id": run_id})
+            self.projection.put(
+                "runs",
+                run_id,
+                {
+                    **run,
+                    "request_id": record["request_id"],
+                    "request_content": content,
+                },
+            )
             if self.state not in {"closing", "closed", "lost"}:
-                await self.synchronize(str(reply["run_id"]))
+                await self.synchronize(run_id)
             record["state"] = "completed"
         except asyncio.CancelledError:
             record["state"] = "unknown" if self.disconnected else "cancelled"

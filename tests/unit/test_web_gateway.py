@@ -304,3 +304,36 @@ async def test_real_core_chat_tool_approval_and_committed_report(web_core) -> No
             assert "检查报告" in report.json()["result"]["final_answer"]
         finally:
             await gateway.shutdown()
+
+
+async def test_report_uses_each_runs_request_not_the_conversation_title(web_core) -> None:
+    gateway = Gateway(core_port=web_core[0])
+    async with client_for(gateway) as client:
+        try:
+            sid = await create_session(client)
+            first_task = "检查样例仓库的项目说明"
+            second_task = "重新检查样例仓库并确认报告文件"
+            first = await complete_turn(client, sid, 1, first_task)
+            first_id = first["current_run_id"]
+            first_report = (await client.get(f"/api/sessions/{sid}/runs/{first_id}/report")).json()
+            second = await complete_turn(client, sid, 2, second_task)
+            second_id = second["current_run_id"]
+            second_report = (
+                await client.get(f"/api/sessions/{sid}/runs/{second_id}/report")
+            ).json()
+            exported = await client.get(
+                f"/api/sessions/{sid}/runs/{second_id}/report?format=markdown"
+            )
+            assert first_id != second_id
+            assert second["title"] == first_task  # Conversation navigation keeps its title.
+            assert first_report["title"] == first_task
+            assert second_report["title"] == second_task
+            assert second_report["request_id"] == f"turn-{sid}-2"
+            assert f"任务：{second_task}" in exported.text
+            assert f"任务：{first_task}" not in exported.text
+            assert second_id in second_report["result"]["transcript_ref"]
+            assert (
+                await client.get(f"/api/sessions/{sid}/runs/{first_id}/report")
+            ).json() == first_report
+        finally:
+            await gateway.shutdown()

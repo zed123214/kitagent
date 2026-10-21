@@ -326,7 +326,8 @@ class Projection:
         report = {
             "schema_version": 1,
             "run_id": rid,
-            "title": self.data["title"],
+            "title": self.data["runs"].get(rid, {}).get("request_content", "未记录本轮任务"),
+            "request_id": self.data["runs"].get(rid, {}).get("request_id"),
             "generated_at": now(),
             "core": deepcopy(self.data["core"]),
             "result": result,

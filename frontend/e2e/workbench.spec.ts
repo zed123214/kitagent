@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -10,7 +10,7 @@ let storageState: Awaited<
   ReturnType<import("@playwright/test").BrowserContext["storageState"]>
 >;
 let completedSession: string;
-const assets = path.resolve("../docs/assets");
+const assets = path.resolve(process.env.AGENTRT_ASSETS_DIR || "../docs/assets");
 const recording = Boolean(process.env.AGENTRT_RECORD_DEMO);
 const serverArgs = recording ? [] : ["--slow"];
 
@@ -95,6 +95,34 @@ test.afterAll(async () => {
     });
   }
 });
+
+async function openAuthenticated(page: Page) {
+  if (storageState) await page.context().addCookies(storageState.cookies);
+  else {
+    const bootstrap = await page.request.post(`${origin}/api/bootstrap`, {
+      data: { token },
+      headers: { Origin: origin },
+    });
+    expect(bootstrap.ok()).toBe(true);
+    storageState = await page.context().storageState();
+  }
+  await page.goto(origin);
+  await expect(
+    page.getByRole("button", { name: "新建会话", exact: true }),
+  ).toBeEnabled();
+}
+
+async function closeTestSession(page: Page) {
+  const sid = new URL(page.url()).searchParams.get("session");
+  if (!sid) return;
+  const status = await page.request
+    .get(`${origin}/api/status`)
+    .then((response) => response.json());
+  await page.request.post(`${origin}/api/sessions/${sid}/close`, {
+    data: { request_id: crypto.randomUUID() },
+    headers: { Origin: origin, "X-CSRF-Token": status.csrf },
+  });
+}
 
 test("real Core approval survives reload and exports the committed report", async ({
   page,
@@ -290,4 +318,215 @@ test("cold pages become usable without resending the completed task", async ({
       2,
     ),
   );
+});
+
+for (const kind of ["create", "send"] as const) {
+  test(`regression: missing ${kind} request can leave the unknown state without replay`, async ({
+    page,
+  }) => {
+    await openAuthenticated(page);
+    if (kind === "send") {
+      await page.getByRole("button", { name: "新建会话", exact: true }).click();
+      await page.getByLabel("输入任务").fill("未送达的任务草稿");
+      await expect(
+        page.getByRole("button", { name: "发送任务" }),
+      ).toBeEnabled();
+    }
+    let posts = 0;
+    let requestId = "";
+    const pattern =
+      kind === "create" ? "**/api/sessions" : "**/api/sessions/*/messages";
+    await page.route(pattern, async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      posts++;
+      requestId = route.request().postDataJSON().request_id;
+      await route.abort(); // Nothing reaches the gateway, unlike the response-loss case.
+    });
+    await page
+      .getByRole("button", {
+        name: kind === "create" ? "新建会话" : "发送任务",
+        exact: true,
+      })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "查询原请求" }),
+    ).toBeVisible();
+    expect(
+      (await page.request.get(`${origin}/api/requests/${requestId}`)).status(),
+    ).toBe(404);
+    await page.reload();
+    await page.getByRole("button", { name: "查询原请求" }).click();
+    await expect(page.getByRole("alert")).toContainText("请求");
+    await expect(
+      page.getByRole("button", { name: "解除等待（不重发）", exact: true }),
+    ).toBeVisible();
+    page.once("dialog", (dialog) => dialog.dismiss());
+    await page
+      .getByRole("button", { name: "解除等待（不重发）", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "查询原请求" }),
+    ).toBeVisible();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page
+      .getByRole("button", { name: "解除等待（不重发）", exact: true })
+      .click();
+    await expect(page.getByRole("button", { name: "查询原请求" })).toHaveCount(
+      0,
+    );
+    await expect
+      .poll(() =>
+        page.evaluate(() => sessionStorage.getItem("agentrt:pending")),
+      )
+      .toBeNull();
+    if (kind === "send") {
+      await expect(page.getByLabel("输入任务")).toHaveValue("未送达的任务草稿");
+      await expect(
+        page.getByRole("button", { name: "发送任务" }),
+      ).toBeEnabled();
+    } else
+      await expect(
+        page.getByRole("button", { name: "新建会话", exact: true }),
+      ).toBeEnabled();
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "解除等待（不重发）", exact: true }),
+    ).toHaveCount(0);
+    expect(posts).toBe(1);
+    await closeTestSession(page);
+  });
+}
+
+for (const variant of ["new text", "edited back", "unchanged"] as const) {
+  test(`regression: a late send receipt respects draft revision (${variant})`, async ({
+    page,
+  }) => {
+    await openAuthenticated(page);
+    await page.getByRole("button", { name: "新建会话", exact: true }).click();
+    const input = page.getByLabel("输入任务");
+    await input.fill("第一条提交的任务");
+    await expect(page.getByRole("button", { name: "发送任务" })).toBeEnabled();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let accepted!: () => void;
+    const arrived = new Promise<void>((resolve) => {
+      accepted = resolve;
+    });
+    await page.route("**/api/sessions/*/messages", async (route) => {
+      const response = await route.fetch();
+      accepted();
+      await held;
+      await route.fulfill({ response });
+    });
+    try {
+      await page.getByRole("button", { name: "发送任务" }).click();
+      await arrived;
+      if (variant !== "unchanged")
+        await input.fill("等待回执时编辑的下一条草稿");
+      if (variant === "edited back") await input.fill("第一条提交的任务");
+      const expected =
+        variant === "unchanged"
+          ? ""
+          : variant === "edited back"
+            ? "第一条提交的任务"
+            : "等待回执时编辑的下一条草稿";
+      release();
+      await expect
+        .poll(() =>
+          page.evaluate(() => sessionStorage.getItem("agentrt:pending")),
+        )
+        .toBeNull();
+      await expect(input).toHaveValue(expected);
+      await page.reload();
+      await expect(page.getByLabel("输入任务")).toHaveValue(expected);
+    } finally {
+      release();
+      await closeTestSession(page);
+    }
+  });
+}
+
+test("regression: an abandoned lookup cannot consume a newer pending request", async ({
+  page,
+}) => {
+  await openAuthenticated(page);
+  let firstId = "";
+  let secondId = "";
+  let posts = 0;
+  await page.route("**/api/sessions", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    posts++;
+    if (posts === 1) {
+      firstId = route.request().postDataJSON().request_id;
+      await route.fetch(); // Accepted by the gateway, but the receipt is lost.
+    } else secondId = route.request().postDataJSON().request_id;
+    await route.abort();
+  });
+  await page.getByRole("button", { name: "新建会话", exact: true }).click();
+  await expect(page.getByRole("button", { name: "查询原请求" })).toBeVisible();
+  await expect
+    .poll(async () =>
+      (await page.request.get(`${origin}/api/requests/${firstId}`))
+        .json()
+        .then((r) => r.state),
+    )
+    .toBe("completed");
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let received!: () => void;
+  const arrived = new Promise<void>((resolve) => {
+    received = resolve;
+  });
+  let delivered!: () => void;
+  const finished = new Promise<void>((resolve) => {
+    delivered = resolve;
+  });
+  await page.route(`**/api/requests/${firstId}`, async (route) => {
+    const response = await route.fetch();
+    received();
+    await held;
+    await route.fulfill({ response });
+    delivered();
+  });
+  try {
+    await page.getByRole("button", { name: "查询原请求" }).click();
+    await arrived;
+    page.once("dialog", (dialog) => dialog.accept());
+    await page
+      .getByRole("button", { name: "解除等待（不重发）", exact: true })
+      .click();
+    await page.getByRole("button", { name: "新建会话", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "查询原请求" }),
+    ).toBeVisible();
+    expect(secondId).not.toBe(firstId);
+    const responseArrived = page.waitForResponse(
+      (response) => response.url() === `${origin}/api/requests/${firstId}`,
+    );
+    release();
+    await finished;
+    await (await responseArrived).finished();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await expect(
+      page.getByRole("button", { name: "查询原请求" }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => JSON.parse(sessionStorage.getItem("agentrt:pending")!).request_id,
+      ),
+    ).toBe(secondId);
+    expect(new URL(page.url()).searchParams.get("session")).toBeNull();
+    expect(posts).toBe(2);
+  } finally {
+    release();
+  }
 });

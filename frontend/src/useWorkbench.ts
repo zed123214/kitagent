@@ -238,28 +238,44 @@ export function useWorkbench() {
     });
   }, [view]);
 
-  async function resolveRequest(record: Pending) {
+  function isPending(record: Pending) {
+    return (
+      pending.current?.request_id === record.request_id &&
+      pending.current?.instance_id === record.instance_id
+    );
+  }
+
+  function clearPending(record: Pending) {
+    if (!isPending(record)) return false;
+    sessionStorage.removeItem(pendingKey);
+    pending.current = null;
+    setUnknown(null);
+    return true;
+  }
+
+  async function resolveRequest(record: Pending): Promise<boolean> {
     if (record.instance_id !== status?.instance_id)
       throw new Error("该请求属于旧网关，不能在当前实例重新执行。");
     for (let count = 0; count < 80; count++) {
       const result = await api<RequestRecord>(`/requests/${record.request_id}`);
+      // An explicit exit can be followed by a new request while this lookup is in flight.
+      if (!isPending(record)) return false;
       if (record.kind === "create" && result.state === "accepted") {
         await sleep(125);
         continue;
       }
       if (result.state === "failed") {
-        sessionStorage.removeItem(pendingKey);
-        pending.current = null;
-        setUnknown(null);
+        setError(result.error || "请求未执行");
+        clearPending(record);
         throw new ApiError(result.error || "请求未执行", 409);
       }
       if (record.kind === "create" && result.session_id)
         select(result.session_id);
-      sessionStorage.removeItem(pendingKey);
-      pending.current = null;
-      setUnknown(null);
-      await refresh();
-      return;
+      clearPending(record);
+      setError("");
+      // Summary refresh failure must not turn an acknowledged request back into an unknown one.
+      void refresh().catch(() => {});
+      return true;
     }
     throw new Error("请求仍在处理中，请查询原请求状态。");
   }
@@ -284,14 +300,11 @@ export function useWorkbench() {
           request_id: record.request_id,
           content,
         });
-      await resolveRequest(record);
-      return true;
+      return await resolveRequest(record);
     } catch (cause) {
       setError(String(cause));
       if (cause instanceof ApiError && cause.status < 500) {
-        sessionStorage.removeItem(pendingKey);
-        pending.current = null;
-        setUnknown(null);
+        clearPending(record);
       } else setUnknown(record);
       return false;
     } finally {
@@ -337,12 +350,29 @@ export function useWorkbench() {
 
   async function checkPending() {
     if (!unknown) return;
+    const record = unknown;
     try {
-      await resolveRequest(unknown);
-      setError("");
+      await resolveRequest(record);
     } catch (cause) {
-      setError(String(cause));
+      if (!isPending(record)) return;
+      setError(
+        cause instanceof ApiError && cause.status === 404
+          ? "当前网关未找到该请求，执行结果仍未确认。可继续查询，或解除本页等待；不会自动重发。"
+          : String(cause),
+      );
     }
+  }
+
+  function leavePending() {
+    if (!unknown || busy || !isPending(unknown)) return;
+    if (
+      !window.confirm(
+        "仅解除本页等待，不会取消或重发原请求；原请求仍可能被网关接收。请核对会话与执行状态后，再决定是否提交新任务。继续？",
+      )
+    )
+      return;
+    if (clearPending(unknown))
+      setError("已解除本页等待。原请求未被取消，也未重发；草稿已保留。");
   }
 
   return {
@@ -359,6 +389,7 @@ export function useWorkbench() {
     close,
     synchronize,
     checkPending,
+    leavePending,
     create: () => command("create"),
     send: (content: string) => command("send", content),
     clearError: () => setError(""),
