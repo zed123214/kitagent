@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import stat
+import tempfile
 from pathlib import Path
 
 _DEFAULT_POLICY_PATH = Path("~/.agentrt/policy.toml")
@@ -31,7 +34,7 @@ def load_policy_file(path: Path | None = None) -> dict[str, str]:
 
 # 将 {tool_name: "allow"/"deny"} 写入 policy.toml，覆盖 [always] 节
 def save_policy_file(always: dict[str, str], path: Path | None = None) -> None:
-    p = (path or _DEFAULT_POLICY_PATH).expanduser()
+    p = (path or _DEFAULT_POLICY_PATH).expanduser().resolve()
     p.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         "# ~/.agentrt/policy.toml",
@@ -41,4 +44,23 @@ def save_policy_file(always: dict[str, str], path: Path | None = None) -> None:
     ]
     for tool, decision in sorted(always.items()):
         lines.append(f'{tool} = "{decision}"')
-    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        existing_mode = stat.S_IMODE(p.stat().st_mode)
+    except FileNotFoundError:
+        existing_mode = None
+    temporary: Path | None = None
+    try:
+        # Replace only after a complete write; failed saves must preserve existing rules.
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=p.parent, prefix=f".{p.name}.", delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write("\n".join(lines) + "\n")
+            stream.flush()
+            if existing_mode is not None:
+                temporary.chmod(existing_mode)
+            os.fsync(stream.fileno())
+        os.replace(temporary, p)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
