@@ -55,9 +55,14 @@ class SocketClient:
         request = JsonRpcRequest(id=req_id, method=method, params=params)
         fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
         self._pending[req_id] = fut
-        self._writer.write(request.model_dump_json().encode() + b"\n")
-        await self._writer.drain()
-        return await fut
+        try:
+            self._writer.write(request.model_dump_json().encode() + b"\n")
+            await self._writer.drain()
+            return await fut
+        finally:
+            self._pending.pop(req_id, None)
+            if not fut.done():
+                fut.cancel()
 
     # 持续读取服务器消息，分发 RPC 响应到 pending future 或事件到 event handler
     async def run_event_loop(self) -> None:
