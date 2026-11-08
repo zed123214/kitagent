@@ -77,6 +77,9 @@ class TaskManager:
         remove_blocked_by: list[int] | None = None,
     ) -> Task:
         task = self._load(task_id)
+        for dep_id in add_blocked_by or []:
+            if not (self._dir / f"task_{dep_id}.json").exists():
+                raise ValueError(f"blocked_by task {dep_id} not found")
         if status is not None:
             if status not in ("pending", "in_progress", "completed"):
                 raise ValueError(f"invalid status: {status!r}")

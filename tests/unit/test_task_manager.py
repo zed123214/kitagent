@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 
 from agent_runtime.core.task.manager import TaskManager
+from agent_runtime.core.task.model import TaskStatus
+from agent_runtime.core.tools.builtin.task_update import TaskUpdateTool
 
 
 # 功能：验证 create 写入 JSON 文件并返回正确的 Task 对象
@@ -80,6 +82,36 @@ def test_update_add_blocked_by(tmp_path: Path) -> None:
     mgr.create("b")
     mgr.update(2, add_blocked_by=[1])
     assert 1 in mgr.get(2).blocked_by
+
+
+@pytest.mark.parametrize("status", [None, "in_progress", "completed"])
+@pytest.mark.parametrize("dependencies", [[99], [3, 99]])
+def test_update_rejects_missing_dependencies_before_changing_any_task(
+    tmp_path: Path, status: TaskStatus | None, dependencies: list[int]
+) -> None:
+    mgr = TaskManager(tmp_path)
+    mgr.create("prerequisite")
+    mgr.create("dependent", blocked_by=[1])
+    mgr.create("other prerequisite")
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+
+    with pytest.raises(ValueError, match="blocked_by task 99 not found"):
+        mgr.update(1, status=status, add_blocked_by=dependencies)
+
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+async def test_task_update_tool_returns_error_for_missing_dependency(tmp_path: Path) -> None:
+    mgr = TaskManager(tmp_path)
+    mgr.create("work")
+    tool = TaskUpdateTool(mgr)
+
+    result = await tool.invoke({"task_id": 1, "add_blocked_by": [99]})
+
+    assert result.is_error
+    assert result.error_type == "runtime_error"
+    assert result.content == "blocked_by task 99 not found"
+    assert mgr.get(1).blocked_by == []
 
 
 # 功能：验证 update remove_blocked_by 正确移除依赖
