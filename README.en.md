@@ -17,7 +17,7 @@
 
 [中文](README.md) · **English**
 
-[Demo](#demo) · [Features](#features) · [Architecture](#architecture) · [Quick Start](#quick-start) · [Documentation](#docs)
+[Demo](#demo) · [Operator Workflow](#operator-demo) · [Features](#features) · [Architecture](#architecture) · [Quick Start](#quick-start) · [Documentation](#docs)
 
 </div>
 
@@ -61,6 +61,71 @@ Choose Read-only, Ask as needed, or Auto-approve for a session. View and revoke 
 </details>
 
 <p align="center"><sub>Built-in offline demo · Scripted model responses + live tool execution · <a href="docs/web-workbench.md#无-api-key-的真实工具演示">Try it locally</a></sub></p>
+
+<a id="operator-demo"></a>
+
+### 🧪 Workflow demo: Equal development and SparseFlashAttentionGrad optimization
+
+Two Ascend C operators illustrate an iterative engineering workflow: **read the specification → establish correctness → locate bottlenecks → change and validate → preserve delivery evidence**. Equal covers operator development; SparseFlashAttentionGrad covers performance optimization of a gradient kernel.
+
+These walkthroughs use existing project documentation and experiment archives. The prompts can be used in KitAgent; the historical results were not rerun by KitAgent for this README. The GIF above remains the repository-check demo.
+
+| Stage | Equal: build and deliver an operator | SparseFlashAttentionGrad: optimize a gradient kernel |
+| --- | --- | --- |
+| **① Define the task** | Specify elementwise equality, BOOL output, broadcasting up to 8 dimensions, NaN, signed zero, and INT64 boundaries. | Identify sparse-index multiplicities, dQ / dK / dV, RoPE, and optional Value branches. |
+| **② Establish a baseline** | Connect OpDef, InferShape, Host Tiling, the Ascend C kernel, and the two-stage ACLNN API; compare with a CPU reference. | Freeze source, inputs, and reference gradients; check correctness before measuring stages and cross-core waits. |
+| **③ Implement a hypothesis** | Compress broadcast axes, precompute strides, compare contiguous segments, tile across cores, reuse UB buffers, and compare INT64 through exact high/low 32-bit components. | Batch repeated-index counts where eligible; move readiness aggregation to AIV and rebalance five query-row slabs and dK / dV reductions. |
+| **④ Decide from measurements** | Run custom and builtin separately, verify loaded libraries, and compare correctness and device time against acceptance thresholds. | Keep slower candidates in the record, revise task ownership, and compare both execution orders. |
+| **⑤ Deliver evidence** | Bind source versions, test matrices, CSVs, and acceptance notes. | Archive the official submission, historical prototypes, and readable refactor separately, with their validation scope. |
+
+<details>
+<summary><strong>Demo 1 · Equal: implementation, broadcasting, and acceptance</strong></summary>
+
+Submit these prompts as successive turns, reviewing the evidence before continuing:
+
+> **Turn 1 — Understand and plan.** Read the Equal specification, source, and tests in the workspace. Identify the input/output contract, dtypes, broadcasting rules, edge cases, and responsibilities of Host Tiling, the kernel, and ACLNN. Propose an implementation and validation sequence.
+
+> **Turn 2 — Implement and optimize.** Use the correct current version as a baseline. Inspect broadcast indexing and data movement, select one supported optimization, and state its expected benefit and fallback conditions. After editing, check equal shapes, multidimensional broadcasting, tails, and special values. Preserve both versions.
+
+> **Turn 3 — Validate and deliver.** Verify custom and builtin library paths. Compare correctness and device time on identical inputs. Report the source version, environment, sampling method, per-case results, and failures. Without an NPU, prepare reproduction commands and mark device checks as pending.
+
+**Historical delivery:** records for source commit `763a5cf5` report **306/306 correctness passes** and **306/306 performance-threshold passes**. Project documentation records the merge through [cann/ops-math PR #5425](https://gitcode.com/cann/ops-math/pull/5425/discuss).
+
+Timing used 5 warm-ups and the median of 10 device-task measurements. For builtin time B and custom time C, acceptance requires C ≤ B + 3 μs when B < 15 μs, otherwise B/C ≥ 0.95. Of the stress cases, 131 reused traceable historical builtin baselines; 4 used two paired reruns of both implementations. Passing does not mean every case is faster or that both A2 and A3 hardware independently ran the entire suite.
+
+</details>
+
+<details>
+<summary><strong>Demo 2 · SparseFlashAttentionGrad: profiling, rejected candidates, and paired validation</strong></summary>
+
+> **Turn 1 — Find the bottleneck.** Read the baseline, index-counting implementation, and profiling records. Check that repeated indices retain their multiplicity. Distinguish computation, transfers, and readiness waits, citing evidence for each diagnosis.
+
+> **Turn 2 — Iterate.** Explain why the initial five-slab candidate regressed, including dK / dV work on short-slab cores. Revise the mapping while preserving output ownership and complete reductions. Validate all three gradients, then compare against the matching baseline in both execution orders. Keep failed results.
+
+> **Turn 3 — Archive.** Separate the official submission, historical prototype, and readable refactor. Bind source hashes, vendor, input hashes, and reports. Summarize correctness, performance, and untested scope, then export the workbench run report.
+
+**One recorded optimization cycle:**
+
+| Decision | Observation | Next step |
+| --- | --- | --- |
+| Reject the initial five-slab prototype | Time increased **4.76% / 1.47%** in the two orders; stage records placed the dK / dV tail on short-slab cores. | Redistribute reduction work and retain the regression record. |
+| Promote the revised historical prototype | On 910B3: **280.17 → 258.99 μs** forward, **275.31 → 259.71 μs** reverse, reducing time by **7.56% / 5.67%**. | Evaluate against its own contiguous-C1 control before integration. Evidence covers these two orders and combined changes, with no final single-mechanism ablation. |
+| Validate the post-competition R5 refactor | On 910B4 / CANN 8.5.0: **56 FP16 correctness reports and 112 poison checks** across 28 scenarios and two versions; 180 Event reports across 15 geometries yielded a geometric mean candidate/original median-time ratio of **0.99555**. | Passed the predefined no-material-regression thresholds; BF16 coverage was template compilation only. |
+
+Official submission `1041451` is **Pass / 47.21 points** in the archived **October 31, 2026** ranking. Prototype gains, official scores, and R5 regression results use separate measurement scopes.
+
+</details>
+
+**Try the workflow in KitAgent:** follow [Quick Start](#quick-start), make the source and test materials accessible to tools, and submit the prompts using a live model. Inspect file reads, edits, builds, and test output in the tool timeline, handle session approvals, and export the report. Device validation requires a compatible Ascend NPU, driver, CANN, and test tools; the default Local / kind environment does not supply that hardware.
+
+<details>
+<summary><strong>Sources and scope</strong></summary>
+
+Sources: `Equal算子开发流程与面试讲解.md` (September 16, 2026, chapters 3, 11, and 12), and the technical notes, optimization history, and experiment records in `星辰杯_答辩材料包_2026-11-06`. SparseFlashAttentionGrad figures map to E01 ranking, E02 correctness status, E03 paired comparison, E11 prototype decision, and the initial five-slab record. These original materials are not distributed with KitAgent.
+
+The archives disclose AI assistance with code research, edits, experiment orchestration, and evidence organization. They do not provide an end-to-end KitAgent run record or a human-hours comparison, so no Agent productivity gain is claimed.
+
+</details>
 
 <a id="features"></a>
 
