@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -18,14 +20,16 @@ class TaskManager:
         self._dir.mkdir(parents=True, exist_ok=True)
         self._next_id = self._max_id() + 1
 
-    # 扫描目录中 task_*.json 文件，返回最大 ID（无文件则返回 0）
+    def _task_paths(self) -> Iterator[tuple[int, Path]]:
+        """Recognize the full task filename before interpreting its numeric ID."""
+        for path in self._dir.glob("task_*.json"):
+            match = re.fullmatch(r"task_([0-9]+)\.json", path.name)
+            if match is not None:
+                yield int(match.group(1)), path
+
+    # 扫描 task_<数字 ID>.json，返回最大 ID（无文件则返回 0）
     def _max_id(self) -> int:
-        ids = [
-            int(f.stem.split("_")[1])
-            for f in self._dir.glob("task_*.json")
-            if f.stem.split("_")[1].isdigit()
-        ]
-        return max(ids) if ids else 0
+        return max((task_id for task_id, _ in self._task_paths()), default=0)
 
     # 读取指定 ID 的任务文件
     def _load(self, task_id: int) -> Task:
@@ -94,7 +98,7 @@ class TaskManager:
     # 返回所有任务，按 ID 升序排列
     def list_all(self) -> list[Task]:
         tasks = []
-        for f in sorted(self._dir.glob("task_*.json"), key=lambda p: int(p.stem.split("_")[1])):
+        for _, f in sorted(self._task_paths()):
             try:
                 tasks.append(Task.from_dict(json.loads(f.read_text())))
             except (ValueError, KeyError):
@@ -103,7 +107,7 @@ class TaskManager:
 
     # 将 completed_id 从所有其他任务的 blocked_by 列表中移除
     def _clear_dependency(self, completed_id: int) -> None:
-        for f in self._dir.glob("task_*.json"):
+        for _, f in self._task_paths():
             try:
                 data = json.loads(f.read_text())
             except (ValueError, json.JSONDecodeError):
