@@ -12,8 +12,8 @@ from pathlib import Path
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--video", type=Path, default=root / "docs/assets/web-workbench-demo.webm")
-    parser.add_argument("--output", type=Path, default=root / "docs/assets/web-workbench-demo.gif")
+    parser.add_argument("--video", type=Path, default=root / "docs/assets/equal-operator-demo.webm")
+    parser.add_argument("--output", type=Path, default=root / "docs/assets/equal-operator-demo.gif")
     args = parser.parse_args()
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:

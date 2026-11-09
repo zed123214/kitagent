@@ -131,9 +131,9 @@ npm run test:e2e
 
 验收脚本启动自己的临时 Core/网关，测试完成后停止，不复用生产会话或已有集群。自动验证创建响应丢失后的查询、审批刷新、run 身份、报告下载及三种桌面宽度，并生成 README 截图。截图中的路径来自合成临时目录。
 
-默认浏览器验收在输出、审批和工具执行三个阶段各刷新 10 次；测量只使用浏览器自身时钟。设置 `AGENTRT_RECORD_DEMO=1`，运行 `npx playwright test -g 'real Core approval'` 可录制约一分钟的 Equal 开发演示，生成 `docs/assets/web-workbench-demo.webm`；录制模式用一次刷新，不模拟创建回执丢失，测量记录与压力验收分开保存。
+默认浏览器验收在输出、审批和工具执行三个阶段各刷新 10 次；测量只使用浏览器自身时钟。设置 `AGENTRT_RECORD_DEMO=1`，运行 `npx playwright test -g 'real Core approval'` 可录制约一分钟的 Equal 开发演示，生成 `docs/assets/equal-operator-demo.webm`；录制模式用一次刷新，不模拟创建回执丢失，测量记录与压力验收分开保存。
 
-录制完成后，在已安装 FFmpeg 的 WSL 项目根目录执行 `python scripts/render_web_demo.py`，将视频转换为 README 引用的 `docs/assets/web-workbench-demo.gif`（1120 像素宽、6 fps）。录像与截图使用同一次真实工具运行的结果；更新演示时应一起替换 GIF、WebM 和两张截图。
+录制完成后，在已安装 FFmpeg 的 WSL 项目根目录执行 `python scripts/render_web_demo.py`，将视频转换为 README 引用的 `docs/assets/equal-operator-demo.gif`（1120 像素宽、6 fps）。录像与截图使用同一次真实工具运行的结果；更新演示时应一起替换 GIF、WebM 和两张截图。
 
 只运行请求与草稿相关的浏览器回归可使用 `npx playwright test -g 'regression:'`。设置 `AGENTRT_ASSETS_DIR=../artifacts/web-validation/review-fixes` 可将完整验收的截图写入忽略目录，避免覆盖已归档的 README 素材。
 

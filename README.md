@@ -37,11 +37,11 @@ KitAgent 是开源 AI Agent 运行时与可视化工作台。你描述开发目�
 
 **从算子规格，到实现、正确性验证与性能实测。**
 
-![KitAgent 算子开发演示：实现 Equal、审批测试、对比实测性能并导出报告](docs/assets/web-workbench-demo.gif)
+![KitAgent 算子开发演示：实现 Equal、审批测试、对比实测性能并导出报告](docs/assets/equal-operator-demo.gif)
 
 <p align="center">
   Equal 算子开发 · 广播与边界验证 · 基线性能对比 · 开发报告<br />
-  <a href="docs/assets/web-workbench-overview.png">查看高清截图</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/web-workbench-demo.webm">下载完整视频</a> · <a href="docs/web-workbench.md">启动工作台</a>
+  <a href="docs/assets/equal-operator-overview.png">查看高清截图</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm">下载完整视频</a> · <a href="docs/web-workbench.md">启动工作台</a>
 </p>
 
 以 `Equal` 算子开发为例：
@@ -58,7 +58,7 @@ KitAgent 是开源 AI Agent 运行时与可视化工作台。你描述开发目�
 <details>
 <summary><strong>展开查看：工具调用与人工审批</strong></summary>
 
-![KitAgent 审批界面：查看待执行工具及参数，选择批准或拒绝](docs/assets/web-workbench-approval.png)
+![KitAgent 审批界面：查看待执行工具及参数，选择批准或拒绝](docs/assets/equal-operator-approval.png)
 
 工作台提供「只读 / 按需询问 / 自动批准」三种会话权限模式，并支持查看和撤销已记住的工具授权。
 

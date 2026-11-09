@@ -39,11 +39,11 @@ A persistent **Core** manages execution and sessions, with **Web / CLI / TUI** i
 
 **From an operator specification to implementation, correctness checks, and measured performance.**
 
-![KitAgent operator demo: implement Equal, approve tests, compare measured performance, and export the report](docs/assets/web-workbench-demo.gif)
+![KitAgent operator demo: implement Equal, approve tests, compare measured performance, and export the report](docs/assets/equal-operator-demo.gif)
 
 <p align="center">
   Equal implementation · Broadcasting and edge cases · Baseline comparison · Development report<br />
-  <a href="docs/assets/web-workbench-overview.png">Full-resolution screenshot</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/web-workbench-demo.webm">Download the full video</a> · <a href="docs/web-workbench.md">Launch the workbench</a>
+  <a href="docs/assets/equal-operator-overview.png">Full-resolution screenshot</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm">Download the full video</a> · <a href="docs/web-workbench.md">Launch the workbench</a>
 </p>
 
 For an `Equal` operator development task, start with:
@@ -60,7 +60,7 @@ For an `Equal` operator development task, start with:
 <details>
 <summary><strong>See tool calls and human approval</strong></summary>
 
-![KitAgent approval view: inspect the pending tool and arguments, then approve or reject](docs/assets/web-workbench-approval.png)
+![KitAgent approval view: inspect the pending tool and arguments, then approve or reject](docs/assets/equal-operator-approval.png)
 
 Choose Read-only, Ask as needed, or Auto-approve for a session. View and revoke remembered tool grants from the permission menu.
 

@@ -208,7 +208,7 @@ test("real Core approval survives reload and exports the committed report", asyn
     .then((r) => r.json());
   await expect(page.locator(".session-item.active")).toContainText("等待审批");
   await page.screenshot({
-    path: path.join(assets, "web-workbench-approval.png"),
+    path: path.join(assets, "equal-operator-approval.png"),
   });
   if (recording) await page.waitForTimeout(5000);
   for (let i = 0; i < (recording ? 1 : 10); i++)
@@ -225,7 +225,7 @@ test("real Core approval survives reload and exports the committed report", asyn
   });
   if (recording) await page.waitForTimeout(4000);
   await page.screenshot({
-    path: path.join(assets, "web-workbench-approval.png"),
+    path: path.join(assets, "equal-operator-approval.png"),
   });
   await page.getByRole("button", { name: "允许一次" }).click();
   if (!recording)
@@ -248,7 +248,7 @@ test("real Core approval survives reload and exports the committed report", asyn
   await expect(page.locator(".report")).toContainText("75/75");
   await page.waitForTimeout(250);
   await page.screenshot({
-    path: path.join(assets, "web-workbench-overview.png"),
+    path: path.join(assets, "equal-operator-overview.png"),
   });
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出运行报告" }).click();
@@ -300,7 +300,7 @@ test("real Core approval survives reload and exports the committed report", asyn
     await page.waitForTimeout(Math.max(6000, 55000 - (Date.now() - started)));
     const video = page.video();
     await page.close();
-    await video?.saveAs(path.join(assets, "web-workbench-demo.webm"));
+    await video?.saveAs(path.join(assets, "equal-operator-demo.webm"));
   }
 });
 
