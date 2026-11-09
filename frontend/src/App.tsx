@@ -26,6 +26,7 @@ import {
   Copy,
   Download,
   FileText,
+  FolderTree,
   GitBranch,
   LoaderCircle,
   Menu,
@@ -145,6 +146,7 @@ function Chat({
   const [newContent, setNewContent] = useState(false);
   const [sendError, setSendError] = useState("");
   const scrolling = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
   const follow = useRef(true);
   const composing = useRef(false);
   useEffect(() => {
@@ -198,7 +200,8 @@ function Chat({
   useEffect(() => {
     const element = scrolling.current;
     if (!element) return;
-    if (follow.current) element.scrollTop = element.scrollHeight;
+    if (messages.length === 0) element.scrollTop = 0;
+    else if (follow.current) element.scrollTop = element.scrollHeight;
     else setNewContent(true);
   }, [messages]);
 
@@ -253,35 +256,68 @@ function Chat({
         >
           {messages.length === 0 ? (
             <div className="welcome">
-              <div className="welcome-mark">
-                <SquareTerminal size={29} />
+              <div className="welcome-intro">
+                <div className="welcome-mark">
+                  <SquareTerminal size={22} />
+                </div>
+                <p className="eyebrow">LET’S BUILD SOMETHING</p>
               </div>
-              <p className="eyebrow">YOUR AGENT, UNDER CONTROL</p>
               <h1>
-                把任务交给 Agent，
+                从一个想法，
                 <br />
-                把执行过程留在眼前。
+                <span>到一次可靠执行。</span>
               </h1>
               <p>
-                从目标到工具调用，再到可核对的结果。
+                描述你的目标，KitAgent 帮你一步步完成。
                 <br />
                 需要你的决定时，工作台会明确提示。
               </p>
-              <button
-                className="example-task"
-                onClick={() => {
-                  const text =
-                    "检查样例 Python 仓库，执行检查脚本并生成检查报告。";
-                  editDraft(text);
-                }}
-              >
-                <FileText size={18} />
-                <span>
-                  <strong>检查样例仓库</strong>
-                  <small>读取说明 · 执行检查 · 交付报告</small>
-                </span>
-                <ArrowRight size={16} />
-              </button>
+              <div className="starter-tasks" aria-label="任务示例">
+                <p className="starter-label">
+                  试着从这里开始 <span>点击填入输入框</span>
+                </p>
+                {[
+                  {
+                    icon: FolderTree,
+                    title: "梳理项目结构",
+                    detail: "了解代码组织与关键入口",
+                    prompt:
+                      "梳理当前项目的目录结构、关键入口与主要模块，先只读文件，不做修改。",
+                  },
+                  {
+                    icon: FileText,
+                    title: "检查样例仓库",
+                    detail: "读取说明 · 执行检查 · 交付报告",
+                    prompt:
+                      "检查样例 Python 仓库，执行检查脚本并生成检查报告。",
+                  },
+                  {
+                    icon: GitBranch,
+                    title: "制定实现计划",
+                    detail: "把目标拆解为可执行的步骤",
+                    prompt:
+                      "阅读当前项目说明，梳理现有能力，并给出后续开发的分步计划，先不修改文件。",
+                  },
+                ].map(({ icon: Icon, title, detail, prompt }) => (
+                  <button
+                    key={title}
+                    className="example-task"
+                    onClick={() => {
+                      editDraft(prompt);
+                      input.current?.focus();
+                    }}
+                  >
+                    <span className="starter-icon">
+                      <Icon size={19} />
+                    </span>
+                    <span>
+                      <strong>{title}</strong>
+                      <small>{detail}</small>
+                    </span>
+                    <ArrowRight size={16} />
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             <ThreadPrimitive.Messages
@@ -322,6 +358,7 @@ function Chat({
           }}
         >
           <textarea
+            ref={input}
             aria-label="输入任务"
             placeholder="描述你希望完成的任务…"
             value={draft}
@@ -818,6 +855,13 @@ export default function App() {
           工作会话 <span>{wb.sessions.length}</span>
         </div>
         <div className="session-list">
+          {wb.sessions.length === 0 && (
+            <div className="sessions-empty">
+              <MessageSquare size={22} />
+              <p>还没有工作会话</p>
+              <small>新建会话，让想法开始落地。</small>
+            </div>
+          )}
           {wb.sessions.map((session) => (
             <button
               className={`session-item ${session.id === wb.sid ? "active" : ""}`}
@@ -963,13 +1007,15 @@ export default function App() {
               <div className="welcome-mark">
                 <SquareTerminal size={34} />
               </div>
-              <p className="eyebrow">AGENT RUNTIME KIT</p>
+              <p className="eyebrow">YOUR PERSONAL AGENT WORKSPACE</p>
               <h1>
-                让 Agent 的执行过程
+                把想法交给 KitAgent。
                 <br />
-                清晰、可控、可核对。
+                <span>每一步，都清晰可见。</span>
               </h1>
-              <p>建立一个会话，开始你的第一个任务。</p>
+              <p>
+                从一个具体目标开始，让工具执行、权限审批与结果交付有条不紊。
+              </p>
               <button
                 className="primary"
                 disabled={!wb.status?.supported || wb.busy || !!wb.unknown}
@@ -977,20 +1023,24 @@ export default function App() {
               >
                 <Plus size={17} />
                 新建会话
+                <ArrowRight size={16} />
               </button>
               <div className="onboarding-features">
-                <span>
-                  <Radio size={16} />
-                  实时执行
-                </span>
-                <span>
-                  <ShieldCheck size={16} />
-                  人工审批
-                </span>
-                <span>
-                  <FileText size={16} />
-                  运行报告
-                </span>
+                <div>
+                  <Radio size={21} />
+                  <strong>看见每一步</strong>
+                  <p>工具调用与任务进展，实时呈现。</p>
+                </div>
+                <div>
+                  <ShieldCheck size={21} />
+                  <strong>由你掌控权限</strong>
+                  <p>按需确认操作，明确执行边界。</p>
+                </div>
+                <div>
+                  <FileText size={21} />
+                  <strong>让结果有据可查</strong>
+                  <p>回看执行事实，导出运行报告。</p>
+                </div>
               </div>
               {!wb.status && (
                 <p className="muted">
