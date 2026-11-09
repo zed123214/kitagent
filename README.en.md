@@ -6,6 +6,16 @@ subagents, and MCP tools.
 
 [中文](README.md) | English
 
+## Equal operator development demo
+
+![KitAgent: implement Equal, validate correctness, and compare measured performance](docs/assets/web-workbench-demo.gif)
+
+> Develop an Equal operator with scalar broadcasting, verify correctness, benchmark it against the baseline, and write a development report.
+
+Read the specification, approve the implementation, validate 75 cases, benchmark three inputs, and export the development report. Model decisions are scripted; Core, permissions, file writes, and tests execute for real. The Python / CPU benchmark uses 3 warmups and 9 samples per input and reports median timings.
+
+[Watch the full demo](docs/assets/web-workbench-demo.webm) · [Screenshot](docs/assets/web-workbench-overview.png) · [Approval screenshot](docs/assets/web-workbench-approval.png) · [Workbench guide](docs/web-workbench.md)
+
 [![CI](https://github.com/zed123214/agent-runtime-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/zed123214/agent-runtime-kit/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
 [![Pydantic](https://img.shields.io/badge/Pydantic-v2-E92063)](https://docs.pydantic.dev/)

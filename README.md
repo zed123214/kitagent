@@ -10,11 +10,15 @@ Agent Runtime Kit 将模型调用、工具执行和会话状态组织成一套�
 
 通过本机浏览器提交任务、观察工具调用、处理人工审批并导出运行报告。Web v0.1 支持 **Loop + Local**；网关持有 Core 连接，页面刷新后可继续观察原任务。使用方法见[工作台说明](docs/web-workbench.md)。
 
-![KitAgent 浏览器工作台与运行报告](docs/assets/web-workbench-overview.png)
+![KitAgent 算子开发演示：实现 Equal、审批测试、对比实测性能并导出报告](docs/assets/web-workbench-demo.gif)
 
-*离线演示采用脚本化 Provider，Core、TCP、权限和工具链均真实运行。图中的 Web 模式不包含 Graph 持久恢复或 Kubernetes 沙箱。*
+> 开发 Equal 算子，支持标量广播，验证正确性并对比基线性能，生成开发报告。
 
-[观看工作台演示](docs/assets/web-workbench-demo.webm) · [查看审批界面](docs/assets/web-workbench-approval.png)
+读取规格 → 审批写入实现 → 验证 75 个用例并实测三组输入 → 保存、读回并导出开发报告。
+
+*离线演示采用脚本化模型响应，Core、权限、文件写入和测试均真实执行。性能数据来自 Python / CPU 原型：每组预热 3 次、采样 9 次，比较中位耗时，不代表 GPU / NPU 内核性能。*
+
+[观看完整演示](docs/assets/web-workbench-demo.webm) · [查看高清截图](docs/assets/web-workbench-overview.png) · [查看审批界面](docs/assets/web-workbench-approval.png)
 
 [![CI](https://github.com/zed123214/agent-runtime-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/zed123214/agent-runtime-kit/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
