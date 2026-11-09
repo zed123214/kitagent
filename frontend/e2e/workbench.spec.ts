@@ -22,7 +22,7 @@ test.beforeAll(async () => {
     .replace(/^([A-Z]):/, (_, drive: string) => `/mnt/${drive.toLowerCase()}`);
   const python = process.env.AGENTRT_TEST_PYTHON || "python3";
   serverProcess =
-    process.platform === "win32"
+    process.platform === "win32" && !process.env.AGENTRT_TEST_NATIVE
       ? spawn(
           "wsl.exe",
           [
@@ -41,6 +41,7 @@ test.beforeAll(async () => {
           python,
           [path.resolve("../scripts/web_validation_server.py"), ...serverArgs],
           {
+            windowsHide: true,
             stdio: "pipe",
           },
         );
@@ -162,22 +163,33 @@ test("real Core approval survives reload and exports the committed report", asyn
   await page.goto(`${origin}/?measure=1`);
   // Do not retain launch URLs/tokens in browser traces or screenshots.
   await expect(page).not.toHaveURL(/bootstrap=/);
-  await page.route("**/api/sessions", async (route) => {
-    if (route.request().method() !== "POST") return route.continue();
-    await route.fetch();
-    await route.abort(); // Lose the response after the real server accepted creation.
-  });
+  if (recording) await page.waitForTimeout(2000);
+  if (!recording)
+    await page.route("**/api/sessions", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      await route.fetch();
+      await route.abort(); // Lose the response after the real server accepted creation.
+    });
   await page.getByRole("button", { name: "新建会话", exact: true }).click();
-  await expect(page.getByRole("button", { name: "查询原请求" })).toBeVisible();
-  await page.unroute("**/api/sessions");
-  await page.reload();
-  await expect(page.getByRole("button", { name: "查询原请求" })).toBeVisible();
-  await page.getByRole("button", { name: "查询原请求" }).click();
+  if (!recording) {
+    await expect(
+      page.getByRole("button", { name: "查询原请求" }),
+    ).toBeVisible();
+    await page.unroute("**/api/sessions");
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "查询原请求" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "查询原请求" }).click();
+  }
   await expect(page.getByLabel("输入任务")).toBeVisible();
   if (recording) await page.waitForTimeout(3000);
   await page
     .getByLabel("输入任务")
-    .fill("检查样例 Python 仓库，执行检查脚本并生成检查报告。");
+    .fill(
+      "开发 Equal 算子，支持标量广播，验证正确性并对比基线性能，生成开发报告。",
+    );
+  if (recording) await page.waitForTimeout(2500);
   await expect(page.getByRole("button", { name: "发送任务" })).toBeEnabled();
   await page.getByRole("button", { name: "发送任务" }).click();
   const sid = new URL(page.url()).searchParams.get("session")!;
@@ -208,6 +220,14 @@ test("real Core approval survives reload and exports the committed report", asyn
   expect(after.current_run_id).toBe(before.current_run_id);
   expect(Object.keys(after.approvals)).toEqual(Object.keys(before.approvals));
   await page.getByRole("button", { name: "允许一次" }).click();
+  await expect(page.locator(".approval-card")).toContainText("bash", {
+    timeout: 15000,
+  });
+  if (recording) await page.waitForTimeout(4000);
+  await page.screenshot({
+    path: path.join(assets, "web-workbench-approval.png"),
+  });
+  await page.getByRole("button", { name: "允许一次" }).click();
   if (!recording)
     for (let i = 0; i < 10; i++) await reload(before.current_run_id);
   await expect(page.locator(".approval-card")).toContainText("write_file", {
@@ -222,6 +242,11 @@ test("real Core approval survives reload and exports the committed report", asyn
   await expect(page.locator(".session-item.active")).toContainText(
     "可继续对话",
   );
+  await page.locator(".messages").evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  await expect(page.locator(".report")).toContainText("75/75");
+  await page.waitForTimeout(250);
   await page.screenshot({
     path: path.join(assets, "web-workbench-overview.png"),
   });
@@ -231,13 +256,15 @@ test("real Core approval survives reload and exports the committed report", asyn
   const target = testInfo.outputPath("report.md");
   await download.saveAs(target);
   const report = await readFile(target, "utf8");
-  expect(report).toContain("检查报告");
+  expect(report).toContain("Equal 算子开发报告");
   expect(report).toContain(before.current_run_id);
-  expect(report).toContain("PASS: sample data is valid");
+  expect(report).toContain("PASS: Equal correctness 75/75");
+  expect(report).toContain("基线 ms");
+  expect(report).toContain("预热 3 次，采样 9 次");
   expect(report).not.toContain(token);
   expect(errors).toEqual([]);
   await collectRender();
-  for (const width of [1280, 1024]) {
+  for (const width of recording ? [] : [1280, 1024]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(
       page.getByRole("button", { name: "导出运行报告" }),
@@ -253,7 +280,7 @@ test("real Core approval survives reload and exports the committed report", asyn
     ),
     JSON.stringify(
       {
-        scenario: "D1-D3",
+        scenario: "Equal operator development",
         viewport: "1440x900",
         browser: `${process.platform} Chromium`,
         browser_version: page.context().browser()?.version(),
@@ -261,7 +288,7 @@ test("real Core approval survives reload and exports the committed report", asyn
         reload_samples_ms: reloadSamples,
         render_samples_ms: renderSamples,
         report_verified: true,
-        viewports: [1440, 1280, 1024],
+        viewports: recording ? [1440] : [1440, 1280, 1024],
         date: new Date().toISOString(),
       },
       null,
@@ -270,7 +297,7 @@ test("real Core approval survives reload and exports the committed report", asyn
   );
   if (recording) {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.waitForTimeout(Math.max(0, 46000 - (Date.now() - started)));
+    await page.waitForTimeout(Math.max(6000, 55000 - (Date.now() - started)));
     const video = page.video();
     await page.close();
     await video?.saveAs(path.join(assets, "web-workbench-demo.webm"));

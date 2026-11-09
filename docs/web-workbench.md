@@ -67,7 +67,9 @@ uv run --frozen --extra web python -m agent_runtime.web.demo \
 uv run --frozen --extra web agentrt-web --core-port 7438
 ```
 
-新建会话，输入“检查样例 Python 仓库，执行检查脚本并生成检查报告”。允许检查命令和报告写入两次审批后，可以读到报告，并从结果面板导出运行报告。拒绝命令时检查不会执行。输入含“子任务”会触发真实 `spawn_agent`；输入“模拟工具错误”会访问不存在的样例文件，以观察工具错误与运行终态的区别。
+默认演示场景为 Equal 算子开发。新建会话，点击“开发 Equal 算子”填入草稿，再发送任务。依次批准实现写入、验证与基准测试命令、开发报告写入，共三次审批；随后自动读回报告，可在结果面板导出运行报告。拒绝任一步骤时不再执行后续开发步骤。输入含“子任务”会触发真实 `spawn_agent`；输入“模拟工具错误”会访问不存在的规格文件，以观察工具错误与运行终态的区别。
+
+Equal 演示支持等长比较、标量广播与空输入，检查 75 个固定及随机用例，对三组输入各预热 3 次、交替采样 9 次并报告中位耗时。实现保存在 `operators/`，原始采样在 `benchmarks/`，开发报告在 `reports/`；报告从本轮成功工具输出提取数据。旧仓库检查场景仍可通过 `--scenario repository` 启动。
 
 这是脚本化 Provider 与真实 Core、TCP、权限、文件和 Shell 工具组合，界面明确标为离线演示。每个 run 使用独占创建的检查标记，重复命令会失败；测试据此判断有没有重复副作用。
 
@@ -129,7 +131,9 @@ npm run test:e2e
 
 验收脚本启动自己的临时 Core/网关，测试完成后停止，不复用生产会话或已有集群。自动验证创建响应丢失后的查询、审批刷新、run 身份、报告下载及三种桌面宽度，并生成 README 截图。截图中的路径来自合成临时目录。
 
-默认浏览器验收在输出、审批和工具执行三个阶段各刷新 10 次；测量只使用浏览器自身时钟。设置 `AGENTRT_RECORD_DEMO=1` 再运行同一命令可录制约 46 秒演示，生成 `docs/assets/web-workbench-demo.webm`；录制模式用一次刷新，测量记录与压力验收分开保存。
+默认浏览器验收在输出、审批和工具执行三个阶段各刷新 10 次；测量只使用浏览器自身时钟。设置 `AGENTRT_RECORD_DEMO=1`，运行 `npx playwright test -g 'real Core approval'` 可录制约一分钟的 Equal 开发演示，生成 `docs/assets/web-workbench-demo.webm`；录制模式用一次刷新，不模拟创建回执丢失，测量记录与压力验收分开保存。
+
+录制完成后，在已安装 FFmpeg 的 WSL 项目根目录执行 `python scripts/render_web_demo.py`，将视频转换为 README 引用的 `docs/assets/web-workbench-demo.gif`（1120 像素宽、6 fps）。录像与截图使用同一次真实工具运行的结果；更新演示时应一起替换 GIF、WebM 和两张截图。
 
 只运行请求与草稿相关的浏览器回归可使用 `npx playwright test -g 'regression:'`。设置 `AGENTRT_ASSETS_DIR=../artifacts/web-validation/review-fixes` 可将完整验收的截图写入忽略目录，避免覆盖已归档的 README 素材。
 

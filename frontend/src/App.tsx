@@ -297,10 +297,10 @@ function Chat({
                   },
                   {
                     icon: FileText,
-                    title: "检查样例仓库",
-                    detail: "读取说明 · 执行检查 · 交付报告",
+                    title: "开发 Equal 算子",
+                    detail: "实现广播 · 正确性验证 · 性能实测",
                     prompt:
-                      "检查样例 Python 仓库，执行检查脚本并生成检查报告。",
+                      "开发 Equal 算子，支持标量广播，验证正确性并对比基线性能，生成开发报告。",
                   },
                   {
                     icon: GitBranch,

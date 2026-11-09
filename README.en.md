@@ -37,25 +37,25 @@ A persistent **Core** manages execution and sessions, with **Web / CLI / TUI** i
 
 ## 📸 Demo
 
-**From a task description to results you can inspect and export.**
+**From an operator specification to implementation, correctness checks, and measured performance.**
 
-![KitAgent 46-second demo: submit a task, approve tool calls, inspect results, and export the report](docs/assets/web-workbench-demo.gif)
+![KitAgent operator demo: implement Equal, approve tests, compare measured performance, and export the report](docs/assets/web-workbench-demo.gif)
 
 <p align="center">
-  Sessions · Multi-turn chat · Tool timeline · Run reports<br />
+  Equal implementation · Broadcasting and edge cases · Baseline comparison · Development report<br />
   <a href="docs/assets/web-workbench-overview.png">Full-resolution screenshot</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/web-workbench-demo.webm">Download the full video</a> · <a href="docs/web-workbench.md">Launch the workbench</a>
 </p>
 
-For a repository check, start with:
+For an `Equal` operator development task, start with:
 
-> Inspect the sample Python repository, run its check script, and write a report.
+> Develop an Equal operator with scalar broadcasting, verify correctness, benchmark it against the baseline, and write a development report.
 
 | Step | What you see in the workbench |
 | --- | --- |
-| **① Describe the goal** | Create a session and submit a task in natural language. |
-| **② Follow execution** | Read agent responses, tool arguments, execution status, and output. |
-| **③ Make decisions** | Approve or reject calls, and remember tool grants for the session. |
-| **④ Use the result** | Review the conclusion, tools, and approvals; export the report and continue chatting. |
+| **① Confirm the specification** | Read the Equal specification, including scalar broadcasting and edge cases. |
+| **② Write the implementation** | Approve the source file; specialize equal-length and broadcast paths to remove per-element modulo indexing. |
+| **③ Validate and measure** | Approve the test command: 75 correctness cases and three benchmark inputs, with 3 warmups and 9 samples each. |
+| **④ Deliver the report** | Approve the report file, read it back, and export conclusions, tool evidence, and approval records. |
 
 <details>
 <summary><strong>See tool calls and human approval</strong></summary>
