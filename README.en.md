@@ -78,17 +78,6 @@ Start with Equal to learn broadcasting and buffer reuse. Then explore matrix/vec
 
 Use KitAgent to carry the analysis, edits, tests, and experiment reports through one conversation.
 
-### Four steps for each optimization
-
-| Step | Question | Action |
-| --- | --- | --- |
-| **① Measure** | Where does execution spend its time? | Establish a baseline and inspect profiling timelines for compute, transfers, and waits. |
-| **② Reduce transfers** | How often is the same data read or written? | Fuse adjacent computation, tile to fit on-chip memory, and reuse inputs and intermediate results. |
-| **③ Schedule work** | Which cores are busy, and which are waiting? | Assign matrix and vector work, overlap transfers with computation, and balance the full workload. |
-| **④ Compare** | What changed after the edit? | Check reference outputs, repeat matched baseline/candidate measurements, and choose the next experiment. |
-
-Further reading: Xiaolin Coding's [Star Cup operator-optimization walkthrough](https://mp.weixin.qq.com/s/Sr8wVJQw0Pt6xZSOtdHp2w) explains data movement, tiling, reuse, and task allocation.
-
 ### Equal: organize the data behind a comparison
 
 Equal compares corresponding tensor values and returns BOOL. Inputs shaped `[2,1]` and `[1,3]` produce `[2,3]`. Address mapping lets each output tile read the corresponding values from the original inputs.
@@ -124,6 +113,17 @@ The following 910B3 five-slab prototype experiment shows how measurements guide 
 | Integration checks | R5 produced **56 FP16 correctness reports and 112 poison checks** on 910B4 / CANN 8.5.0. | Check complete gradients, output writes, and input immutability. |
 
 Locate the tail, redistribute query and reduction work together, then compare under matching conditions. Start the next iteration from the updated timeline.
+
+### Four optimization steps from these cases
+
+| Step | Question | Action |
+| --- | --- | --- |
+| **① Measure** | Where does execution spend its time? | Establish a baseline and inspect profiling timelines for compute, transfers, and waits. |
+| **② Reduce transfers** | How often is the same data read or written? | Fuse adjacent computation, tile to fit on-chip memory, and reuse inputs and intermediate results. |
+| **③ Schedule work** | Which cores are busy, and which are waiting? | Assign matrix and vector work, overlap transfers with computation, and balance the full workload. |
+| **④ Compare** | What changed after the edit? | Check reference outputs, repeat matched baseline/candidate measurements, and choose the next experiment. |
+
+Further reading: Xiaolin Coding's [Star Cup operator-optimization walkthrough](https://mp.weixin.qq.com/s/Sr8wVJQw0Pt6xZSOtdHp2w) explains data movement, tiling, reuse, and task allocation.
 
 ### Run the workflow in KitAgent
 
