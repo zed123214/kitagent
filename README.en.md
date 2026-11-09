@@ -2,7 +2,7 @@
 
 <h1>KitAgent</h1>
 
-<p><strong>Run your AI agent from the browser or terminal</strong></p>
+<p><strong>Bring an AI agent into development, testing, and performance optimization</strong></p>
 
 <p>An open-source AI agent runtime and visual workbench</p>
 <p><sub>Conversational tasks · Live tool tracking · Human approval · Session memory · Kubernetes sandboxes</sub></p>
@@ -17,13 +17,19 @@
 
 [中文](README.md) · **English**
 
-[Demo](#demo) · [Operator Workflow](#operator-demo) · [Features](#features) · [Architecture](#architecture) · [Quick Start](#quick-start) · [Documentation](#docs)
+[Demo](#demo) · [Operator Optimization](#operator-demo) · [Features](#features) · [Architecture](#architecture) · [Quick Start](#quick-start) · [Documentation](#docs)
+
+<p><a href="https://github.com/zed123214/kitagent"><strong>⭐ Star KitAgent</strong></a> · <a href="#quick-start">Get started</a> · <a href="#operator-demo">Explore operator optimization</a></p>
 
 </div>
 
 ---
 
-KitAgent is for developers who build and use AI automation tools. Describe a task in your browser or terminal, let the agent read your project, run commands, and edit files, then continue in the same conversation. Use the workbench to inspect tool calls, handle approvals, follow subtasks, and export a report for each run.
+KitAgent is an open-source AI agent runtime and visual workbench. Describe a development goal; let the agent read code, edit files, and run commands.
+
+Inspect tool output, handle approvals, and keep working in the same conversation.
+
+Use it to connect analysis, experiments, and delivery, from repository checks to operator optimization. The **Equal** and **SparseFlashAttentionGrad** walkthroughs explain how to find bottlenecks, organize data, and distribute computation.
 
 A persistent **Core** manages execution and sessions, with **Web / CLI / TUI** interfaces, **Loop / LangGraph** engines, and **Local / Kubernetes** tool environments.
 
@@ -64,148 +70,97 @@ Choose Read-only, Ask as needed, or Auto-approve for a session. View and revoke 
 
 <a id="operator-demo"></a>
 
-### 🧪 Workflow demo: develop and optimize Ascend operators with an agent
+## 🧪 Optimize operators with an agent: Equal to SparseFlashAttentionGrad
 
-**Turn a correct operator into an optimization you can explain, validate, and deliver.** Equal covers development from input semantics to community acceptance. SparseFlashAttentionGrad covers algorithm selection, Cube / Vector coordination, bottleneck diagnosis, and rejected candidates.
+An operator maps a mathematical operation onto data movement and hardware instructions. Comparing two values is simple. Comparing entire tensors also takes broadcast indexing, tiled transfers, and work across cores.
 
-This workflow combines existing project records with methods presented in operator-competition talks. Results come from the original archives; there is no end-to-end KitAgent run record for these operators yet. The GIF above remains the repository-check demo.
+Start with Equal to learn broadcasting and buffer reuse. Then explore matrix/vector cooperation and load balancing through SparseFlashAttentionGrad.
 
-**Follow the workflow:** establish the contract and environment → map computation and data movement → implement a correct baseline → compare candidates → measure and validate → freeze the delivery. Diagnose build or numerical failures first, then use performance evidence to decide which changes to keep.
+Use KitAgent to carry the analysis, edits, tests, and experiment reports through one conversation.
 
-| Stage | Question for the agent | Output to review |
+### Four steps for each optimization
+
+| Step | Question | Action |
 | --- | --- | --- |
-| **① Set up** | What are the interface, dtypes, shapes, hardware, CANN version, and acceptance criteria? | Input contract, environment inventory, baseline source version, and executable validation commands. |
-| **② Design** | What are the dependencies and data movements? Which work belongs on the Host, AIC (matrix core), or AIV (vector core)? | Computation steps, transfer paths, task ownership, and an algorithm comparison. |
-| **③ Implement** | Can the minimal correct path build, run, and match the reference? | A runnable baseline, boundary tests, and a diagnosis of the first failure. |
-| **④ Optimize** | Is the cost in indexing, computation, transfers, synchronization, or uneven work? | A testable hypothesis, a diff, admission conditions, and a fallback. |
-| **⑤ Decide** | Is it faster on matching inputs and environments? Do other scenarios regress? | A correctness matrix, paired timings in both orders, stage evidence, and a keep/revert decision. |
-| **⑥ Deliver** | Does the integrated version still pass, and how can someone verify it? | Frozen source, build and loaded-library identities, input hashes, raw reports, and untested scope. |
+| **① Measure** | Where does execution spend its time? | Establish a baseline and inspect profiling timelines for compute, transfers, and waits. |
+| **② Reduce transfers** | How often is the same data read or written? | Fuse adjacent computation, tile to fit on-chip memory, and reuse inputs and intermediate results. |
+| **③ Schedule work** | Which cores are busy, and which are waiting? | Assign matrix and vector work, overlap transfers with computation, and balance the full workload. |
+| **④ Compare** | What changed after the edit? | Check reference outputs, repeat matched baseline/candidate measurements, and choose the next experiment. |
+
+Further reading: Xiaolin Coding's [Star Cup operator-optimization walkthrough](https://mp.weixin.qq.com/s/Sr8wVJQw0Pt6xZSOtdHp2w) explains data movement, tiling, reuse, and task allocation.
+
+### Equal: organize the data behind a comparison
+
+Equal compares corresponding tensor values and returns BOOL. Inputs shaped `[2,1]` and `[1,3]` produce `[2,3]`. Address mapping lets each output tile read the corresponding values from the original inputs.
+
+**Precompute repeated indexing work.** On the Host, merge adjacent axes with matching broadcast patterns and calculate strides. The kernel locates a contiguous segment, then compares its elements in batches.
+
+**Reuse what you load.** Choose tile sizes from dtype and the UB on-chip memory budget. Account for inputs, outputs, and scratch space. Cache scalars, broadcast planes, and reusable tail rows; assign output regions across cores.
+
+**Test numerical behavior.** Cover NaN, signed zero, and infinities. Compare INT64 through its high and low 32-bit components to retain all integer information. Connect validation, execution, and output handling through ACLNN.
+
+| Stage | Method | Result |
+| --- | --- | --- |
+| Specification and baseline | Define behavior with broadcast examples and special values. | Input/output contract, CPU reference, and test matrix. |
+| Tiling and kernel | Precompute indexing on the Host; compare and reuse tiles on the device. | Axis compression, multicore tiling, vector comparison, and buffer reuse. |
+| Validation and delivery | Freeze a version, compare outputs, and collect per-case results. | **306/306 correctness passes**; code merged through [cann/ops-math PR #5425](https://gitcode.com/cann/ops-math/pull/5425/discuss). |
+
+### SparseFlashAttentionGrad: balance the complete pipeline
+
+Sparse Attention backward computes `dQ / dK / dV` alongside index processing, coefficients, and gradient accumulation. Plan when each block becomes ready, which core consumes it, and where reductions finish.
+
+**Batch repeated-index counts.** Indices `[2,0,2,3]` have counts `[1,0,2,1]` for keys `[0,1,2,3]`. Preserve each occurrence in the gradient. Sorting and cumulative-boundary differences provide a batch approach to counting.
+
+**Separate computation and coordination.** AIC matrix cores perform matrix multiplication. AIV vector cores handle counts, coefficients, and readiness aggregation. Plot production, publication, waits, and gradient work on a timeline.
+
+**Balance all work assigned to each core.** A 512-row split of `128 / 128 / 128 / 64 / 64` also needs to account for dK / dV reductions. A short-slab core can finish last when it has more reduction work.
+
+The following 910B3 five-slab prototype experiment shows how measurements guide the next edit:
+
+| Iteration | Observation | Method |
+| --- | --- | --- |
+| Initial split | Time rose **4.76% / 1.47%** in the two orders, with the dK / dV tail on short-slab cores. | Account for query work and gradient reductions together. |
+| Revised ownership | **280.17 → 258.99 μs** forward; **275.31 → 259.71 μs** reverse. | Redistribute reductions; time fell **7.56% / 5.67%**. |
+| Integration checks | R5 produced **56 FP16 correctness reports and 112 poison checks** on 910B4 / CANN 8.5.0. | Check complete gradients, output writes, and input immutability. |
+
+Locate the tail, redistribute query and reduction work together, then compare under matching conditions. Start the next iteration from the updated timeline.
+
+### Run the workflow in KitAgent
+
+Provide source, specifications, a reference implementation, and test commands. Continue analysis, edits, and validation in one session. Inspect tool output, handle approvals, and export the run report.
+
+| Turn | Agent task | What you review |
+| --- | --- | --- |
+| **Understand** | Explain inputs, outputs, dependencies, and build/test entry points. | Computation steps, validation commands, and a correct baseline. |
+| **Diagnose** | Read profiling and compare algorithms, transfers, and task mappings. | Time distribution, a hypothesis, and candidate changes. |
+| **Experiment** | Implement a candidate and run correctness checks and paired timing. | Code diff, per-case results, and before/after times. |
+| **Iterate** | Keep or revise the candidate, then run integration checks. | Delivery version, experiment conclusions, and run report. |
 
 <details>
-<summary><strong>Demo 1 · Equal: connect semantics, implementation, and acceptance</strong></summary>
-
-**Start with the contract.** Equal compares corresponding elements of two broadcastable tensors and produces BOOL output. For example, shapes `[2,1]` and `[1,3]` produce `[2,3]`; output coordinates must map to each input rather than simply comparing matching addresses.
-
-**Explain the implementation choices.** The Host compresses broadcast axes, precomputes effective strides, and divides work across cores. The kernel moves and compares contiguous segments, reusing UB data for eligible broadcast patterns.
-
-ACLNN validates the interface and performs required input/output adaptation. INT64 uses exact high/low 32-bit comparisons to avoid lossy conversion.
-
-Submit each prompt in the workbench and review its output before continuing:
-
-> **Turn 1 — Contract and baseline.** Read the Equal specification, source, and tests; identify entry points and versions. Describe dtypes, broadcasting up to 8 dimensions, and outputs. Explain address mapping with a two-sided broadcast example. List NaN, signed-zero, INT64-boundary, and tail tests, and separate Host Tiling, kernel, and ACLNN responsibilities. Establish a build and correctness baseline.
-
-> **Turn 2 — One change and its counterexamples.** Select a remaining bottleneck supported by evidence in the correct baseline. Explain existing axis compression, contiguous segments, and caching. Propose one change, its admission conditions, and inputs that might regress. Preserve the baseline and fallback, validate affected semantics and boundaries, and distinguish source-based reasoning from device measurements.
-
-> **Turn 3 — Paired acceptance and delivery.** Verify the libraries and task types actually used by custom and builtin. Compare matching inputs. Separate kernel device time from full interface time when the latter is measured. Report versions, environment, warm-ups, sampling, thresholds, and failures. Without an NPU, supply reproduction commands and pending checks. Freeze the accepted source and export the run report.
-
-**Historical delivery:** records for source commit `763a5cf5` report **306/306 correctness passes** and **306/306 performance-threshold passes**. Project documentation records the merge through [cann/ops-math PR #5425](https://gitcode.com/cann/ops-math/pull/5425/discuss).
-
-Timing used 5 warm-ups and the median of 10 device-task measurements. For builtin time B and custom time C, acceptance requires C ≤ B + 3 μs when B < 15 μs, otherwise B/C ≥ 0.95.
-
-Of the stress cases, 131 reused traceable historical builtin baselines; 4 used two paired reruns of both implementations. Passing does not mean every case is faster or that both A2 and A3 hardware independently ran the entire suite.
-
-</details>
-
-<details>
-<summary><strong>Demo 2 · SparseFlashAttentionGrad: from dependencies to evidence-backed optimization</strong></summary>
-
-**Preserve the mathematics before changing the computation.** Sparse indices can repeat: `[2,0,2,3]` has counts `[1,0,2,1]` for keys `[0,1,2,3]`. Each repeated occurrence contributes to the gradients; deduplication alone changes the result.
-
-For the main path without RoPE and with a separate Value input, let `α` be the scale, `m/z` the matching forward stabilization maximum/normalization sum, and `count` the valid-index multiplicity. Aggregating by unique key gives:
+<summary><strong>Copy this task to start an optimization</strong></summary>
 
 ```text
-score = Q @ Kᵀ                    dP = dOut @ Vᵀ
-P = exp(α · score - m) / z         delta = rowsum(dOut · Out)
-W = count · P                     G = W · (dP - delta)
-dQ = α · G @ K                    dK = α · Gᵀ @ Q
-dV = Wᵀ @ dOut
+Help optimize the operator in this workspace.
+
+Read its specification, source, and reference implementation.
+Map inputs, outputs, dependencies, build commands, and tests.
+Establish correctness and performance baselines.
+
+Find time spent in computation, transfers, indexing, and waits.
+Choose one optimization, explain the overhead it addresses,
+preserve the baseline, and implement the candidate.
+
+Check outputs on identical inputs. Repeat measurements in
+baseline→candidate and candidate→baseline order.
+Summarize the code changes, correctness, and timing differences.
+Use the results to choose the next experiment and write a report.
 ```
 
-These equations explain dependencies; the implementation computes in blocks. RoPE, optional Value, invalid indices, and length boundaries still require contract-specific handling.
-
-AIC performs matrix products, while AIV handles counts, coefficients, and vector reductions. Buffer placement, transfers, publication, and waits must be traced to the selected source version.
-
-**Make each optimization a question you can test:**
-
-| Question | Candidates and tradeoffs | Evidence required |
-| --- | --- | --- |
-| How should repeated indices be counted? | Compare scalar counting with sorted cumulative-boundary differences. Direct binary search, partitioned binary search, and merging are candidates to evaluate against index length, key range, repetition, and UB budget. | Matching counts, full-gradient correctness, and total sorting/search/merge cost. Listing a candidate does not mean this project implements it or proves it faster. |
-| Why are matrix cores waiting? | Separate computation, transfers, readiness publication, and waits. Check whether coordination competes with the previous round's dK / dV work on the same core. | Device markers or profiling timelines by core and stage, with clock, synchronization, and instrumentation overhead described. An API envelope is not a direct measure of hardware busy time. |
-| Are five slabs balanced? | For 512 rows split as 128/128/128/64/64, inspect ownership of dQ and dK / dV together, rather than relying on row counts. | Per-core work, the final critical path, output ownership, complete reductions, and matched paired timing. |
-| Does the change work beyond a few inputs? | Build a matrix across dtype, mode, RoPE, Value, shape, tails, and index distributions. Keep explicit admission conditions and a fallback. | Separate official public cases, self-generated extensions, and untested scope. Record compilation and numerical device validation separately. |
-
-**Four prompts for the workbench:**
-
-> **Turn 1 — Dependencies and candidates.** Read the baseline, contract, and golden. Map the forward saved values to dQ/dK/dV and explain repeated-index contributions. List the current counting method, two alternatives, and their admission conditions. Mark implemented and proposed work separately. Establish correctness and a test matrix; select algorithms by input properties, not case IDs.
-
-> **Turn 2 — Measurements and hypotheses.** Read profiling or marker records and organize a timeline by AIC/AIV and compute, transfer, publish, and wait stages. Distinguish full-call time, kernel time, and instrumentation envelopes. Identify the critical path. Label each conclusion as measured, inferred from source, or pending, and explain how to control instrumentation effects.
-
-> **Turn 3 — Change and challenge it.** Explain the evidence behind the initial five-slab regression, including dK/dV work on short-slab cores. Test one mapping hypothesis while preserving output ownership and complete reductions. Validate every gradient present and the affected branches. Repeat baseline→candidate and candidate→baseline measurements. Keep slower results; combined changes do not establish an individual mechanism's gain.
-
-> **Turn 4 — Integrate and freeze.** Prioritize remaining work by correctness, expected benefit, validation cost, and regression risk; reserve time for package acceptance. Freeze candidates, unify interfaces, Host routing, and fallback, then rerun integration checks. Archive the official submission, prototypes, and refactor separately, binding source hashes, vendor, input hashes, reports, and untested scope.
-
-**One recorded optimization cycle:**
-
-| Decision | Observation | Next step |
-| --- | --- | --- |
-| Reject the initial five-slab prototype | Time increased **4.76% / 1.47%** in the two orders; stage records placed the dK / dV tail on short-slab cores. | Redistribute reduction work and retain the regression record. |
-| Promote the revised historical prototype | On 910B3: **280.17 → 258.99 μs** forward, **275.31 → 259.71 μs** reverse, reducing time by **7.56% / 5.67%**. | Evaluate against its own contiguous-C1 control before integration. Evidence covers these two orders and combined changes, with no final single-mechanism ablation. |
-| Validate the post-competition R5 refactor | On 910B4 / CANN 8.5.0: **56 FP16 correctness reports and 112 poison checks** across 28 scenarios and two versions; 180 Event reports across 15 geometries yielded a geometric mean candidate/original median-time ratio of **0.99555**. | Passed the predefined no-material-regression thresholds; BF16 coverage was template compilation only. |
-
-Official submission `1041451` is **Pass / 47.21 points** in the archived **October 31, 2026** ranking. Prototype gains, official scores, and R5 regression results use separate measurement scopes.
+For larger tasks, use [Subagents](docs/skills-subagents-mcp.md) to study algorithms, pipelines, and tests. Let the lead task schedule device measurements and integrate the changes. Save repeatable steps as Skills.
 
 </details>
 
-<details>
-<summary><strong>Collaboration demo · A lead task owns the contract; subtasks return reviewable candidates</strong></summary>
-
-Inspired by the lead/worker split in the talks, independent research can use [Subagents](docs/skills-subagents-mcp.md), with the lead task owning interfaces, acceptance, and integration.
-
-This is a suggested workflow, not a claim that KitAgent automatically isolates Git repositories or merges candidates.
-
-| Role | Responsibility | Return to the lead |
-| --- | --- | --- |
-| Lead | Fix the baseline, shared interfaces, tests, and time budget; schedule device measurements and choose candidates. | Candidate list, integrated version, and acceptance decision. |
-| Algorithm subtask | Study broadcast mapping or counting, comparing conditions and costs. | Source evidence, candidate differences, counterexamples, and fallback conditions. |
-| Pipeline subtask | Study transfers, synchronization, and cross-core work allocation. | Timeline evidence, a critical-path hypothesis, and a validation plan. |
-| Validation subtask | Extend the test matrix, verify loaded libraries, and organize paired reports. | Per-case results, failures, and source/input bindings. |
-
-For concurrent edits, explicitly prepare a separate checkout or Git worktree for each candidate and assign its path, allowed files, and handoff format. Subagents in one session share the tool workspace by default.
-
-Serialize comparative measurements on a shared NPU so candidates do not interfere with one another.
-
-> **Lead-task prompt.** Fix the input contract, baseline commit, validation commands, and acceptance criteria. Split algorithm analysis, pipeline analysis, and test-matrix design into independent read-only subtasks first. Prepare separate candidate directories before edits. Require each candidate to return its diff, admission conditions, correctness/performance evidence, and failures. Integrate, run the full regression suite, and freeze the delivery through the lead task.
-
-</details>
-
-**Try it in KitAgent:** follow [Quick Start](#quick-start). Supply tool-accessible paths to source, specifications, golden, and historical reports, and describe the available hardware. Submit the prompts using a live model, inspect tool calls, handle session approvals, and export reports.
-
-Device validation needs a compatible Ascend NPU, driver, CANN, and test tools; the default Local / kind environment does not supply that hardware.
-
-**Without an NPU:** demonstrate contract analysis, source explanations, candidate comparison, and offline checks of existing reports. Deliver a test matrix and reproduction commands; device correctness, performance, and synchronization remain pending.
-
-The original project materials are not distributed with KitAgent and must be supplied before using these cases.
-
-<details>
-<summary><strong>Sources, method references, and result scope</strong></summary>
-
-Historical sources: `Equal算子开发流程与面试讲解.md` (September 16, 2026, chapters 3, 11, and 12), and `星辰杯_答辩材料包_2026-11-06`.
-
-SparseFlashAttentionGrad figures map to E01 ranking, E02 correctness status, E03 paired comparison, E11 prototype decision, and the initial five-slab record. The original materials are not distributed with this repository.
-
-Method references are photographs of operator-competition talks covering algorithm selection, marker-based pipeline timelines, computation flow, “Agentic Ops Develop,” problem formulation, dataset partitioning, and allocation of time and submission budget.
-
-Some slides are obscured; only readable methodological ideas are used. The photographs and other presenters' experimental results are not included as this project's achievements.
-
-The methods are adapted here as KitAgent collaboration examples. The slides' `asc-setup / asc-design / asc-implement / asc-optimize / asc-profile / asc-loop / asc-debug / asc-submit` commands belong to an external `asc-op-dev` example and are not built into KitAgent.
-
-Algorithm candidates and expanded test matrices describe proposed work, not existing implementations or completed test coverage.
-
-The project archives disclose AI assistance with research, edits, experiment orchestration, and evidence organization. They provide neither an end-to-end KitAgent run record nor a human-hours comparison; no Agent productivity gain is claimed.
-
-The new methodological guidance does not change the measurement scope of the historical results above.
-
-</details>
+**Ready for your first experiment?** [Launch the workbench](#quick-start) and bring your own task. Give KitAgent a [**⭐ Star**](https://github.com/zed123214/kitagent) to support the project and find it again for your next experiment.
 
 <a id="features"></a>
 
@@ -388,7 +343,7 @@ For an offline browser demo, see the [workbench guide](docs/web-workbench.md#无
 
 Share use cases, report bugs through [Issues](https://github.com/zed123214/kitagent/issues), or open a pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and checks.
 
-If KitAgent helps with your work, give it a **Star** and share what you built with it.
+Want an AI agent for your own development tasks? Give KitAgent a [**⭐ Star**](https://github.com/zed123214/kitagent) and share your experiments or use cases in Issues.
 
 ## 📄 License
 
