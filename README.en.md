@@ -104,6 +104,14 @@ Sparse Attention backward computes `dQ / dK / dV` alongside index processing, co
 
 **Balance all work assigned to each core.** A 512-row split of `128 / 128 / 128 / 64 / 64` also needs to account for dK / dV reductions. A short-slab core can finish last when it has more reduction work.
 
+<a id="five-tiling-demo"></a>
+
+![Five-slab tiling animation: partition 512 rows, locate the short-core reduction tail, redistribute reductions, and compare both measurement orders](docs/assets/five-tiling-demo.en.gif)
+
+**Watch the five-slab workflow:** split 512 rows → locate the tail → share reductions with long-slab cores → compare both orders.
+
+[Static results](docs/assets/five-tiling-demo.en.png) · [Animation source](scripts/render_five_tiling.py)
+
 The following 910B3 five-slab prototype experiment shows how measurements guide the next edit:
 
 | Iteration | Observation | Method |
