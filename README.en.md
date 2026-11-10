@@ -162,6 +162,27 @@ For larger tasks, use [Subagents](docs/skills-subagents-mcp.md) to study algorit
 
 **Ready for your first experiment?** [Launch the workbench](#quick-start) and bring your own task. Give KitAgent a [**⭐ Star**](https://github.com/zed123214/kitagent) to support the project and find it again for your next experiment.
 
+### Runnable example: LangGraph operator optimization replay
+
+[examples/operator_workflow_demo.py](examples/operator_workflow_demo.py)
+
+```bash
+uv run --frozen --extra graph python examples/operator_workflow_demo.py
+```
+
+```text
+contract → evaluate → reject → evaluate → keep → report
+                       └─ exhausted candidates → report
+```
+
+No API key or NPU is required. The real KitAgent Graph engine executes a registered tool and emits runtime events; a business StateGraph inside the tool evaluates archived evidence.
+
+Watch the initial candidate regress +4.76% / +1.47% and be rejected, then the revised candidate improve −7.56% / −5.67% and be kept. Exhausted candidates retain the baseline. Output includes node events, decisions, and pending-validation status.
+
+This uses a scripted provider and historical evidence, with no NPU execution or automated code edits. Timings come from the initial five-slab record and E11/DECISION.json, each with its own control; correctness flags are historical. Improvement in both orders is a demo gate, not an official score or statistical significance claim. Contracts and test matrices show requirements, not new test coverage.
+
+The workflow adapts contract analysis, pipeline diagnosis, and unified acceptance from the presentation references. Its business graph is composed inside a local tool; the runtime retains its model ↔ kit_tools topology. This is a terminal example, not Web integration. Real use requires build, correctness, and profiling tools with source, environment, and input bindings.
+
 <a id="features"></a>
 
 ## ✨ Features

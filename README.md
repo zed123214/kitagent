@@ -155,6 +155,27 @@ KitAgent 是开源 AI Agent 运行时与可视化工作台。你描述开发目�
 
 **准备好试一轮了？** [启动工作台](#quick-start)，把你的任务交给 Agent。觉得这套开发方式有用，欢迎点一个 [**⭐ Star**](https://github.com/zed123214/kitagent)，关注 KitAgent 的后续更新。
 
+### 可运行示例：LangGraph 算子优化回放
+
+[examples/operator_workflow_demo.py](examples/operator_workflow_demo.py)
+
+```bash
+uv run --frozen --extra graph python examples/operator_workflow_demo.py
+```
+
+```text
+contract → evaluate → reject → evaluate → keep → report
+                       └─ exhausted candidates → report
+```
+
+无需 API Key 或 NPU，执行真实 KitAgent Graph 引擎、工具注册与事件流；工具内的业务 StateGraph 根据归档证据决定保留或回退。
+
+观察初稿 `+4.76% / +1.47%` 被拒绝，重分配候选 `−7.56% / −5.67%` 被保留；候选耗尽时保留基线。输出包括运行时节点事件、决策过程和待验证状态。
+
+这是脚本化 Provider 与历史证据回放，不执行 NPU 测试或自动改码。数据分别摘自五分片初稿记录和 E11/DECISION.json，各使用自己的对照；精度标记来自历史记录。两顺序均变快只是演示门槛，不是官方评分或统计显著性结论。赛题契约和测试矩阵仅展示设计要求，未新增测试覆盖。
+
+示例借鉴现场 PPT 的契约拆解、流水线诊断及统一验收思路。业务图组合在本地工具中，运行时仍使用 model ↔ kit_tools 拓扑。当前从终端运行，未接入 Web；真实应用需替换为构建、数值验证、profiling 工具，并绑定源码、环境与输入哈希。
+
 <a id="features"></a>
 
 ## ✨ 核心能力
