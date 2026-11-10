@@ -162,26 +162,45 @@ For larger tasks, use [Subagents](docs/skills-subagents-mcp.md) to study algorit
 
 **Ready for your first experiment?** [Launch the workbench](#quick-start) and bring your own task. Give KitAgent a [**⭐ Star**](https://github.com/zed123214/kitagent) to support the project and find it again for your next experiment.
 
-### Runnable example: LangGraph operator optimization replay
+### LangGraph in action: an operator optimization state machine
 
-[examples/operator_workflow_demo.py](examples/operator_workflow_demo.py)
+Organize operator optimization as a traceable workflow: **plan, validate, benchmark, revise, review, and deliver**. Nodes update shared state; validation results and review decisions determine the next step.
+
+```mermaid
+flowchart LR
+    A[plan] --> B[validate]
+    B -->|pass| C[benchmark]
+    B -->|fail| D[diagnose]
+    C -->|regression| D
+    D -->|next attempt| B
+    D -->|limit reached| F[fallback]
+    C -->|accepted| E[review interrupt]
+    E -->|approve| G[deliver]
+    E -->|reject| F
+    G --> H[report]
+    F --> H
+```
+
+| LangGraph pattern | Implementation | What you see |
+| --- | --- | --- |
+| Stateful workflow | `StateGraph` stores phase, candidate index, decision history, and selected version | Results and rejected candidates remain in state |
+| Conditional routing | Correctness and performance select the next node | Failed correctness skips timing; regressions trigger diagnosis |
+| Iteration and termination | `max_attempts` bounds candidate evaluation | Exhausted attempts retain the baseline and produce a report |
+| Review and resume | `interrupt()` pauses; `Command(resume=...)` supplies the decision | Approval delivers the candidate; rejection retains the baseline |
+| Checkpointing | `InMemorySaver` holds in-process state by `thread_id` | Resume at review with completed evaluations preserved |
+| Tools and observability | The KitAgent Graph engine invokes the workflow tool; the business graph emits node updates | Follow runtime and business stages, then export a JSON report |
+
+**Run the complete workflow:**
 
 ```bash
-uv run --frozen --extra graph python examples/operator_workflow_demo.py
+uv run --frozen --extra graph python examples/operator_workflow_demo.py --review approve --output operator-report.json
 ```
 
-```text
-contract → evaluate → reject → evaluate → keep → report
-                       └─ exhausted candidates → report
-```
+Use `--review reject` to exercise rejection, or `--max-attempts 1` to exercise early termination and baseline retention. The `--review` option supplies the decision used to resume this demonstration's review checkpoint.
 
-No API key or NPU is required. The real KitAgent Graph engine executes a registered tool and emits runtime events; a business StateGraph inside the tool evaluates archived evidence.
+The included scenario uses archived SparseFlashAttentionGrad experiments: the initial five-slab regression triggers another iteration, and the rebalanced candidate reaches review. Reports retain each candidate's paired timings, changes, source, review decision, and selected version.
 
-Watch the initial candidate regress +4.76% / +1.47% and be rejected, then the revised candidate improve −7.56% / −5.67% and be kept. Exhausted candidates retain the baseline. Output includes node events, decisions, and pending-validation status.
-
-This uses a scripted provider and historical evidence, with no NPU execution or automated code edits. Timings come from the initial five-slab record and E11/DECISION.json, each with its own control; correctness flags are historical. Improvement in both orders is a demo gate, not an official score or statistical significance claim. Contracts and test matrices show requirements, not new test coverage.
-
-The workflow adapts contract analysis, pipeline diagnosis, and unified acceptance from the presentation references. Its business graph is composed inside a local tool; the runtime retains its model ↔ kit_tools topology. This is a terminal example, not Web integration. Real use requires build, correctness, and profiling tools with source, environment, and input bindings.
+[State machine source](examples/operator_workflow_demo.py) · [Branch and recovery tests](tests/unit/test_operator_workflow_demo.py) · [KitAgent Graph engine](docs/graph-engine.md)
 
 <a id="features"></a>
 
