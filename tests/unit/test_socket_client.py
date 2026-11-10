@@ -3,10 +3,96 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import Any
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from agent_runtime.core.transport.socket_client import IpcError, SocketClient
+
+
+@pytest.fixture
+def client_with_writer() -> tuple[SocketClient, Mock]:
+    client = SocketClient("127.0.0.1", 0)
+    writer = Mock(spec=asyncio.StreamWriter)
+    writer.drain = AsyncMock()
+    client._writer = writer
+    return client, writer
+
+
+@pytest.mark.parametrize("stage", ["write", "drain"])
+async def test_failed_send_removes_pending_request(
+    client_with_writer: tuple[SocketClient, Mock], stage: str
+) -> None:
+    client, writer = client_with_writer
+    getattr(writer, stage).side_effect = OSError("send failed")
+
+    with pytest.raises(OSError, match="send failed"):
+        await client.send_command("core.ping", {})
+
+    assert client._pending == {}
+
+
+async def test_serialization_failure_removes_pending_request(
+    client_with_writer: tuple[SocketClient, Mock],
+) -> None:
+    client, writer = client_with_writer
+
+    with pytest.raises(ValueError):
+        await client.send_command("core.ping", {"unsupported": object()})
+
+    writer.write.assert_not_called()
+    assert client._pending == {}
+
+
+@pytest.mark.parametrize("stage", ["drain", "response"])
+async def test_cancelled_send_cleans_up_without_affecting_other_requests(
+    client_with_writer: tuple[SocketClient, Mock], stage: str
+) -> None:
+    client, writer = client_with_writer
+    first_started = asyncio.Event()
+    second_started = asyncio.Event()
+    release_drain = asyncio.Event()
+
+    async def drain() -> None:
+        if not first_started.is_set():
+            first_started.set()
+            if stage == "drain":
+                await release_drain.wait()
+        else:
+            second_started.set()
+
+    writer.drain.side_effect = drain
+    first = asyncio.create_task(client.send_command("core.ping", {}))
+    second: asyncio.Task[dict[str, Any]] | None = None
+    try:
+        await asyncio.wait_for(first_started.wait(), timeout=2.0)
+        first_id = json.loads(writer.write.call_args.args[0])["id"]
+        first_future = client._pending[first_id]
+        second = asyncio.create_task(client.send_command("core.ping", {}))
+        await asyncio.wait_for(second_started.wait(), timeout=2.0)
+        second_id = json.loads(writer.write.call_args.args[0])["id"]
+
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+
+        assert first_id not in client._pending
+        assert first_future.cancelled()
+        assert set(client._pending) == {second_id}
+        await client._dispatch(
+            json.dumps({"jsonrpc": "2.0", "id": first_id, "result": {"late": True}}).encode()
+        )
+        assert not second.done()
+        await client._dispatch(
+            json.dumps({"jsonrpc": "2.0", "id": second_id, "result": {"pong": True}}).encode()
+        )
+        assert await asyncio.wait_for(second, timeout=2.0) == {"pong": True}
+        assert client._pending == {}
+    finally:
+        tasks = [first] if second is None else [first, second]
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def _start_mock_server(
