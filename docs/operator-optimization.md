@@ -85,5 +85,47 @@
 
 </details>
 
+<a id="operator-workflow"></a>
+
+## LangGraph 实战：算子优化状态机
+
+把一次算子优化组织成可追踪的工作流：**制定计划、验证候选、评估性能、诊断重试、审核交付**。每个节点更新共享状态，下一步由验证结果与审核决定驱动。
+
+```mermaid
+flowchart LR
+    A[plan 任务规划] --> B[validate 精度检查]
+    B -->|通过| C[benchmark 性能评估]
+    B -->|失败| D[diagnose 诊断与迭代]
+    C -->|退化| D
+    D -->|继续迭代| B
+    D -->|达到上限| F[fallback 保留基线]
+    C -->|达标| E[review 审核中断]
+    E -->|approve| G[deliver 接受候选]
+    E -->|reject| F
+    G --> H[report 输出报告]
+    F --> H
+```
+
+| LangGraph 场景 | 示例实现 | 你能看到什么 |
+| --- | --- | --- |
+| 有状态工作流 | `StateGraph` 保存阶段、候选序号、决策历史和选中版本 | 每轮结果随状态流转，失败记录持续保留 |
+| 条件路由 | 精度与性能结果决定后继节点 | 精度失败跳过计时，性能退化进入诊断 |
+| 迭代与终止 | `max_attempts` 控制候选轮次 | 预算耗尽后保留基线并生成报告 |
+| 审核与恢复 | `interrupt()` 暂停，`Command(resume=...)` 传回决定 | 批准后交付，拒绝后保留基线 |
+| 检查点 | `InMemorySaver` 按 `thread_id` 保存进程内状态 | 从审核节点续跑，已完成的评估保持原样 |
+| 工具集成与观测 | KitAgent Graph 引擎调用工作流工具，业务图输出节点更新 | 同时观察 `model / kit_tools` 与业务阶段，导出 JSON 报告 |
+
+**运行一次完整流程：**
+
+```bash
+uv run --frozen --extra graph python examples/operator_workflow_demo.py --review approve --output operator-report.json
+```
+
+切换 `--review reject` 查看审核拒绝分支；设置 `--max-attempts 1` 查看提前结束与基线保留。`--review` 指定本次演示在审核检查点恢复时使用的决定。
+
+内置案例使用 SparseFlashAttentionGrad 的归档实验记录：五分片初稿退化后进入下一轮，重分配候选通过评估后进入审核。报告保留各候选的对照耗时、变化率、来源、审核决定及最终版本。
+
+[查看状态机代码](../examples/operator_workflow_demo.py) · [查看分支与恢复测试](../tests/unit/test_operator_workflow_demo.py) · [了解 KitAgent Graph 引擎](graph-engine.md)
+
 [启动 KitAgent 工作台](../README.md#quick-start) · [返回项目首页](../README.md)
 
