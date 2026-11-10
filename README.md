@@ -19,7 +19,7 @@
 
 [产品演示](#demo) · [算子优化实战](#operator-demo) · [核心能力](#features) · [系统架构](#architecture) · [快速开始](#quick-start) · [文档导航](#docs)
 
-<p><a href="#quick-start">开始使用</a> · <a href="docs/web-workbench.md#无-api-key-的真实工具演示">无需 API Key 体验演示</a> · <a href="docs/architecture.md">阅读实现</a></p>
+<p><a href="#quick-start">开始使用</a> · <a href="docs/architecture.md">阅读实现</a></p>
 
 </div>
 
