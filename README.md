@@ -39,30 +39,30 @@ KitAgent 面向想使用、学习或扩展 AI Agent 的开发者。你描述任�
 
 ## 📸 产品演示
 
-**从一句任务描述，到可查看、可导出的执行结果。**
+**从算子规格，到实现、正确性验证与性能实测。**
 
-![KitAgent 46 秒操作演示：提交任务、审批工具调用、查看执行结果与导出报告](docs/assets/web-workbench-demo.gif)
+![KitAgent 算子开发演示：实现 Equal、审批测试、对比实测性能并导出报告](docs/assets/equal-operator-demo.gif)
 
 <p align="center">
-  会话管理 · 多轮对话 · 工具时间线 · 运行报告<br />
-  <a href="docs/assets/web-workbench-overview.png">查看高清截图</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/web-workbench-demo.webm">下载完整视频</a> · <a href="docs/web-workbench.md">启动工作台</a>
+  Equal 算子开发 · 广播与边界验证 · 基线性能对比 · 开发报告<br />
+  <a href="docs/assets/equal-operator-overview.png">查看高清截图</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm">下载完整视频</a> · <a href="docs/web-workbench.md">启动工作台</a>
 </p>
 
-以仓库检查为例：
+以 `Equal` 算子开发为例：
 
-> 检查样例 Python 仓库，执行检查脚本并生成检查报告。
+> 开发 Equal 算子，支持标量广播，验证正确性并对比基线性能，生成开发报告。
 
 | 步骤 | 你在工作台中看到的内容 |
 | --- | --- |
-| **① 描述目标** | 新建会话，用自然语言提交任务。 |
-| **② 观察执行** | 查看 Agent 回复、工具参数、执行状态与输出。 |
-| **③ 参与决策** | 在审批卡片中批准或拒绝调用，也可记住本会话的工具授权。 |
-| **④ 获取结果** | 查看本轮结论、工具记录与审批记录，导出运行报告后继续对话。 |
+| **① 确认规格** | 读取 Equal 规格，明确等长比较、标量广播与边界语义。 |
+| **② 编写实现** | 审批写入算子实现，将等长与广播路径分开，移除逐元素取模索引。 |
+| **③ 验证与实测** | 审批运行测试，验证 75 个用例；对三组输入预热 3 次、采样 9 次，对比中位耗时。 |
+| **④ 交付报告** | 审批保存开发报告，读回核对结果；导出结论、工具证据和审批记录。 |
 
 <details>
 <summary><strong>展开查看：工具调用与人工审批</strong></summary>
 
-![KitAgent 审批界面：查看待执行工具及参数，选择批准或拒绝](docs/assets/web-workbench-approval.png)
+![KitAgent 审批界面：查看待执行工具及参数，选择批准或拒绝](docs/assets/equal-operator-approval.png)
 
 工作台提供「只读 / 按需询问 / 自动批准」三种会话权限模式，并支持查看和撤销已记住的工具授权。
 
@@ -71,6 +71,46 @@ KitAgent 面向想使用、学习或扩展 AI Agent 的开发者。你描述任�
 <p align="center"><sub>内置离线演示 · 脚本化模型响应 + 实际工具执行 · <a href="docs/web-workbench.md#无-api-key-的真实工具演示">在本机体验</a></sub></p>
 
 > 如果你想搭建自己的 Agent，或研究工具调用、人工审批与会话管理的实现，欢迎点右上角 **⭐ Star**，收藏这套源码、运行示例和设计文档。
+
+### LangGraph 实战：算子优化状态机
+
+把一次算子优化组织成可追踪的工作流：**制定计划、验证候选、评估性能、诊断重试、审核交付**。每个节点更新共享状态，下一步由验证结果与审核决定驱动。
+
+```mermaid
+flowchart LR
+    A[plan 任务规划] --> B[validate 精度检查]
+    B -->|通过| C[benchmark 性能评估]
+    B -->|失败| D[diagnose 诊断与迭代]
+    C -->|退化| D
+    D -->|继续迭代| B
+    D -->|达到上限| F[fallback 保留基线]
+    C -->|达标| E[review 审核中断]
+    E -->|approve| G[deliver 接受候选]
+    E -->|reject| F
+    G --> H[report 输出报告]
+    F --> H
+```
+
+| LangGraph 场景 | 示例实现 | 你能看到什么 |
+| --- | --- | --- |
+| 有状态工作流 | `StateGraph` 保存阶段、候选序号、决策历史和选中版本 | 每轮结果随状态流转，失败记录持续保留 |
+| 条件路由 | 精度与性能结果决定后继节点 | 精度失败跳过计时，性能退化进入诊断 |
+| 迭代与终止 | `max_attempts` 控制候选轮次 | 预算耗尽后保留基线并生成报告 |
+| 审核与恢复 | `interrupt()` 暂停，`Command(resume=...)` 传回决定 | 批准后交付，拒绝后保留基线 |
+| 检查点 | `InMemorySaver` 按 `thread_id` 保存进程内状态 | 从审核节点续跑，已完成的评估保持原样 |
+| 工具集成与观测 | KitAgent Graph 引擎调用工作流工具，业务图输出节点更新 | 同时观察 `model / kit_tools` 与业务阶段，导出 JSON 报告 |
+
+**运行一次完整流程：**
+
+```bash
+uv run --frozen --extra graph python examples/operator_workflow_demo.py --review approve --output operator-report.json
+```
+
+切换 `--review reject` 查看审核拒绝分支；设置 `--max-attempts 1` 查看提前结束与基线保留。`--review` 指定本次演示在审核检查点恢复时使用的决定。
+
+内置案例使用 SparseFlashAttentionGrad 的归档实验记录：五分片初稿退化后进入下一轮，重分配候选通过评估后进入审核。报告保留各候选的对照耗时、变化率、来源、审核决定及最终版本。
+
+[查看状态机代码](examples/operator_workflow_demo.py) · [查看分支与恢复测试](tests/unit/test_operator_workflow_demo.py) · [了解 KitAgent Graph 引擎](docs/graph-engine.md)
 
 <a id="features"></a>
 

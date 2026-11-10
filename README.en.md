@@ -37,30 +37,30 @@ A persistent **Core** manages execution and sessions, with **Web / CLI / TUI** i
 
 ## 📸 Demo
 
-**From a task description to results you can inspect and export.**
+**From an operator specification to implementation, correctness checks, and measured performance.**
 
-![KitAgent 46-second demo: submit a task, approve tool calls, inspect results, and export the report](docs/assets/web-workbench-demo.gif)
+![KitAgent operator demo: implement Equal, approve tests, compare measured performance, and export the report](docs/assets/equal-operator-demo.gif)
 
 <p align="center">
-  Sessions · Multi-turn chat · Tool timeline · Run reports<br />
-  <a href="docs/assets/web-workbench-overview.png">Full-resolution screenshot</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/web-workbench-demo.webm">Download the full video</a> · <a href="docs/web-workbench.md">Launch the workbench</a>
+  Equal implementation · Broadcasting and edge cases · Baseline comparison · Development report<br />
+  <a href="docs/assets/equal-operator-overview.png">Full-resolution screenshot</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm">Download the full video</a> · <a href="docs/web-workbench.md">Launch the workbench</a>
 </p>
 
-For a repository check, start with:
+For an `Equal` operator development task, start with:
 
-> Inspect the sample Python repository, run its check script, and write a report.
+> Develop an Equal operator with scalar broadcasting, verify correctness, benchmark it against the baseline, and write a development report.
 
 | Step | What you see in the workbench |
 | --- | --- |
-| **① Describe the goal** | Create a session and submit a task in natural language. |
-| **② Follow execution** | Read agent responses, tool arguments, execution status, and output. |
-| **③ Make decisions** | Approve or reject calls, and remember tool grants for the session. |
-| **④ Use the result** | Review the conclusion, tools, and approvals; export the report and continue chatting. |
+| **① Confirm the specification** | Read the Equal specification, including scalar broadcasting and edge cases. |
+| **② Write the implementation** | Approve the source file; specialize equal-length and broadcast paths to remove per-element modulo indexing. |
+| **③ Validate and measure** | Approve the test command: 75 correctness cases and three benchmark inputs, with 3 warmups and 9 samples each. |
+| **④ Deliver the report** | Approve the report file, read it back, and export conclusions, tool evidence, and approval records. |
 
 <details>
 <summary><strong>See tool calls and human approval</strong></summary>
 
-![KitAgent approval view: inspect the pending tool and arguments, then approve or reject](docs/assets/web-workbench-approval.png)
+![KitAgent approval view: inspect the pending tool and arguments, then approve or reject](docs/assets/equal-operator-approval.png)
 
 Choose Read-only, Ask as needed, or Auto-approve for a session. View and revoke remembered tool grants from the permission menu.
 
@@ -161,6 +161,46 @@ For larger tasks, use [Subagents](docs/skills-subagents-mcp.md) to study algorit
 </details>
 
 **Ready for your first experiment?** [Launch the workbench](#quick-start) and bring your own task. Give KitAgent a [**⭐ Star**](https://github.com/zed123214/kitagent) to support the project and find it again for your next experiment.
+
+### LangGraph in action: an operator optimization state machine
+
+Organize operator optimization as a traceable workflow: **plan, validate, benchmark, revise, review, and deliver**. Nodes update shared state; validation results and review decisions determine the next step.
+
+```mermaid
+flowchart LR
+    A[plan] --> B[validate]
+    B -->|pass| C[benchmark]
+    B -->|fail| D[diagnose]
+    C -->|regression| D
+    D -->|next attempt| B
+    D -->|limit reached| F[fallback]
+    C -->|accepted| E[review interrupt]
+    E -->|approve| G[deliver]
+    E -->|reject| F
+    G --> H[report]
+    F --> H
+```
+
+| LangGraph pattern | Implementation | What you see |
+| --- | --- | --- |
+| Stateful workflow | `StateGraph` stores phase, candidate index, decision history, and selected version | Results and rejected candidates remain in state |
+| Conditional routing | Correctness and performance select the next node | Failed correctness skips timing; regressions trigger diagnosis |
+| Iteration and termination | `max_attempts` bounds candidate evaluation | Exhausted attempts retain the baseline and produce a report |
+| Review and resume | `interrupt()` pauses; `Command(resume=...)` supplies the decision | Approval delivers the candidate; rejection retains the baseline |
+| Checkpointing | `InMemorySaver` holds in-process state by `thread_id` | Resume at review with completed evaluations preserved |
+| Tools and observability | The KitAgent Graph engine invokes the workflow tool; the business graph emits node updates | Follow runtime and business stages, then export a JSON report |
+
+**Run the complete workflow:**
+
+```bash
+uv run --frozen --extra graph python examples/operator_workflow_demo.py --review approve --output operator-report.json
+```
+
+Use `--review reject` to exercise rejection, or `--max-attempts 1` to exercise early termination and baseline retention. The `--review` option supplies the decision used to resume this demonstration's review checkpoint.
+
+The included scenario uses archived SparseFlashAttentionGrad experiments: the initial five-slab regression triggers another iteration, and the rebalanced candidate reaches review. Reports retain each candidate's paired timings, changes, source, review decision, and selected version.
+
+[State machine source](examples/operator_workflow_demo.py) · [Branch and recovery tests](tests/unit/test_operator_workflow_demo.py) · [KitAgent Graph engine](docs/graph-engine.md)
 
 <a id="features"></a>
 

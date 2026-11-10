@@ -25,6 +25,8 @@ async def web_core(tmp_path: Path, free_port: int):
             sys.executable,
             "-m",
             "agent_runtime.web.demo",
+            "--scenario",
+            "repository",
             "--port",
             str(free_port),
             "--directory",
