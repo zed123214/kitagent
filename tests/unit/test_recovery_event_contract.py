@@ -230,6 +230,50 @@ def test_middle_event_corruption_and_sequence_gaps_fail_closed(tmp_path: Path) -
         read_event_log(gap)
 
 
+@pytest.mark.parametrize("repair_tail", [False, True])
+@pytest.mark.parametrize(
+    "bad_row",
+    [
+        b"{broken}",
+        b"\xff",
+        b"",
+        b"[]",
+        b'{"event_seq":true}',
+        b'{"event_seq":3}',
+        b'{"type":"run.finished"}',
+    ],
+    ids=["json", "utf8", "empty", "non-object", "invalid-seq", "seq-gap", "missing-seq"],
+)
+def test_rejected_event_log_preserves_incomplete_tail(
+    tmp_path: Path, bad_row: bytes, repair_tail: bool
+) -> None:
+    path = tmp_path / "events.jsonl"
+    original = b'{"event_seq":1}\n' + bad_row + b'\n{"event_seq":'
+    path.write_bytes(original)
+
+    with pytest.raises(EventLogCorruptionError):
+        read_event_log(path, repair_tail=repair_tail)
+
+    assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize("repair_tail", [False, True])
+@pytest.mark.parametrize("prefix", [b"", b'{"event_seq":1}\n', b'{"event_seq":1}\r\n'])
+def test_valid_event_log_repairs_only_uncommitted_tail(
+    tmp_path: Path, prefix: bytes, repair_tail: bool
+) -> None:
+    path = tmp_path / "events.jsonl"
+    original = prefix + b'{"event_seq":'
+    path.write_bytes(original)
+
+    snapshot = read_event_log(path, repair_tail=repair_tail)
+
+    assert snapshot.truncated_tail
+    assert snapshot.events == (({"event_seq": 1},) if prefix else ())
+    assert snapshot.last_event_seq == (1 if prefix else 0)
+    assert path.read_bytes() == (prefix if repair_tail else original)
+
+
 def test_transcript_batch_is_idempotent_and_exposes_canonical_commit(tmp_path: Path) -> None:
     store = SessionStore(tmp_path / "sessions")
     messages = [

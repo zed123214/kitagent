@@ -34,7 +34,7 @@ def _truncate_tail(path: Path, size: int) -> None:
 
 
 def read_event_log(path: Path, *, repair_tail: bool = False) -> EventLogSnapshot:
-    """Read committed JSONL records and reject corruption before the tail."""
+    """Read committed JSONL records, validating them before any tail repair."""
 
     if not path.exists():
         return EventLogSnapshot(events=(), last_event_seq=0, truncated_tail=False)
@@ -46,8 +46,6 @@ def read_event_log(path: Path, *, repair_tail: bool = False) -> EventLogSnapshot
         last_newline = payload.rfind(b"\n")
         complete_size = last_newline + 1
         payload = payload[:complete_size]
-        if repair_tail:
-            _truncate_tail(path, complete_size)
 
     events: list[dict[str, Any]] = []
     last_event_seq = 0
@@ -85,6 +83,10 @@ def read_event_log(path: Path, *, repair_tail: bool = False) -> EventLogSnapshot
             last_event_seq = raw_seq
             sequenced_rows_started = True
         events.append(row)
+
+    # Preserve the original bytes if a committed row fails validation.
+    if truncated_tail and repair_tail:
+        _truncate_tail(path, complete_size)
 
     return EventLogSnapshot(
         events=tuple(events),
