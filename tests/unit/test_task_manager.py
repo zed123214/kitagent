@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -159,3 +160,44 @@ def test_manager_resumes_id_from_existing_files(tmp_path: Path) -> None:
     mgr2 = TaskManager(tmp_path)
     task = mgr2.create("third")
     assert task.id == 3
+
+
+@pytest.mark.parametrize(
+    "filename", ["task_notes.json", "task_99_backup.json", "task_².json", "task_.json"]
+)
+@pytest.mark.parametrize("operation", ["resume", "list", "complete"])
+def test_task_scans_ignore_non_task_filenames(
+    tmp_path: Path, filename: str, operation: str
+) -> None:
+    mgr = TaskManager(tmp_path)
+    mgr.create("prerequisite")
+    dependent = mgr.create("dependent", blocked_by=[1])
+    backup = dependent.to_dict()
+    backup["id"] = 99
+    extra = tmp_path / filename
+    original = json.dumps(backup).encode("utf-8")
+    extra.write_bytes(original)
+
+    if operation == "resume":
+        resumed = TaskManager(tmp_path)
+        assert resumed.create("next task").id == 3
+    elif operation == "list":
+        assert [task.id for task in mgr.list_all()] == [1, 2]
+        assert "#99:" not in mgr.format_list()
+    else:
+        mgr.update(1, status="completed")
+        assert mgr.get(2).blocked_by == []
+
+    assert extra.read_bytes() == original
+
+
+def test_task_scans_keep_numeric_order_and_reserve_corrupt_task_ids(tmp_path: Path) -> None:
+    mgr = TaskManager(tmp_path)
+    for index in range(12):
+        mgr.create(f"task {index + 1}")
+    (tmp_path / "task_20.json").write_text("{broken", encoding="utf-8")
+
+    resumed = TaskManager(tmp_path)
+
+    assert [task.id for task in resumed.list_all()] == list(range(1, 13))
+    assert resumed.create("next task").id == 21
