@@ -21,6 +21,8 @@
 
 <p><a href="#quick-start">开始使用</a> · <a href="docs/architecture.md">阅读实现</a></p>
 
+<p>如果你想搭建自己的 Agent，或研究工具调用、人工审批与会话管理的实现，欢迎点右上角 <strong>⭐ Star</strong>，收藏这套源码、运行示例和设计文档。</p>
+
 </div>
 
 ---
@@ -66,8 +68,6 @@ KitAgent 面向想使用、学习或扩展 AI Agent 的开发者。你描述任�
 工作台提供「只读 / 按需询问 / 自动批准」三种会话权限模式，并支持查看和撤销已记住的工具授权。
 
 <p align="center"><sub>内置离线演示 · 脚本化模型响应 + 实际工具执行 · <a href="docs/web-workbench.md#无-api-key-的真实工具演示">在本机体验</a></sub></p>
-
-> 如果你想搭建自己的 Agent，或研究工具调用、人工审批与会话管理的实现，欢迎点右上角 **⭐ Star**，收藏这套源码、运行示例和设计文档。
 
 <a id="operator-demo"></a>
 
