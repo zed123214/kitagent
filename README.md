@@ -19,9 +19,7 @@
 
 [产品演示](#demo) · [算子优化实战](#operator-demo) · [核心能力](#features) · [系统架构](#architecture) · [快速开始](#quick-start) · [文档导航](#docs)
 
-<p><a href="#quick-start">开始使用</a> · <a href="docs/architecture.md">阅读实现</a></p>
-
-<p>如果你想搭建自己的 Agent，或研究工具调用、人工审批与会话管理的实现，欢迎点右上角 <strong>⭐ Star</strong>，收藏这套源码、运行示例和设计文档。</p>
+<p><a href="https://github.com/zed123214/kitagent"><strong>⭐ Star KitAgent</strong></a> · <a href="#quick-start">开始使用</a> · <a href="docs/architecture.md">阅读实现</a></p>
 
 </div>
 
