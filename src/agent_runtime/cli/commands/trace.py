@@ -44,9 +44,7 @@ def cmd_trace(
                 raw=raw,
             )
 
-    if follow:
-        with open(trace_path) as f:
-            f.seek(0, 2)
+        if follow:
             while True:
                 line = f.readline()
                 if line:
