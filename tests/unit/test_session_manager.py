@@ -135,6 +135,23 @@ async def test_send_message_chat_enters_waiting_and_writes_thread(tmp_path: Path
     assert messages[1]["role"] == "assistant"
 
 
+@pytest.mark.parametrize("content", ["/", "/ \t"])
+async def test_send_message_accepts_slash_without_skill_name(tmp_path: Path, content: str) -> None:
+    store = SessionStore(tmp_path)
+    manager = SessionManager(store, lambda: _Runner(), EventBus())  # type: ignore[arg-type]
+    session = await manager.create("chat")
+
+    await manager.send_message(session.id, content)
+
+    loaded = store.read_meta(session.id)
+    assert loaded.status == "waiting_for_input"
+    assert loaded.active_run_id is None
+    assert store.read_messages(session.id) == [
+        {"role": "user", "content": content},
+        {"role": "assistant", "content": [{"type": "text", "text": f"done {content}"}]},
+    ]
+
+
 async def test_skill_event_carries_run_correlation_and_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
