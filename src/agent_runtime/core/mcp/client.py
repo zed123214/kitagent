@@ -107,7 +107,11 @@ class McpClient:
         for item in response.get("content", []):
             if item.get("type") == "text":
                 parts.append(str(item["text"]))
-        return "\n".join(parts)
+        content = "\n".join(parts)
+        # A successful JSON-RPC exchange can still carry a failed MCP tool result.
+        if response.get("isError") is True:
+            raise McpToolError(content or "MCP tool returned isError=true")
+        return content
 
     # 后台任务：持续读取 stderr 并记录日志，防止管道缓冲区满
     async def _drain_stderr(self) -> None:
