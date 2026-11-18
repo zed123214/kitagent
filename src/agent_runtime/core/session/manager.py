@@ -223,12 +223,12 @@ class SessionManager:
             session.updated_at = _now()
             self._store.write_meta(session)
 
-            # Skill 解析：检测 "/" 前缀，展开为系统提示覆盖和工具白名单
+            # Skill 解析：有 "/" 前缀和名称时，尝试展开系统提示和工具白名单
             goal = content
             system_prompt_override: str | None = None
             tool_whitelist: list[str] | None = None
-            if content.startswith("/"):
-                parts = content[1:].split(None, 1)
+            parts = content[1:].split(None, 1) if content.startswith("/") else []
+            if parts:
                 skill_name = parts[0]
                 arguments = parts[1] if len(parts) > 1 else ""
                 skill = self._skill_loader.resolve(skill_name)
