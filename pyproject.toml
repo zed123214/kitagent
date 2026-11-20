@@ -14,6 +14,7 @@ dependencies = [
     "anthropic>=0.25",
     "textual>=0.75",
     "httpx[socks]>=0.28.1",
+    "openai>=2,<3",
 ]
 
 [project.optional-dependencies]
@@ -81,5 +82,5 @@ markers = [
     "kubernetes: requires an explicitly configured live Kubernetes cluster",
     "graph: marks offline tests that require the optional graph extra",
     "recovery: marks offline tests that require the optional graph-sqlite extra",
-    "integration: marks tests that call the real Anthropic API (require ANTHROPIC_API_KEY)",
+    "integration: marks tests that call the configured LLM provider and require its API key",
 ]

@@ -87,12 +87,12 @@ def test_default_provider_remains_lazy_until_runner_invocation(
 ) -> None:
     constructed = False
 
-    def eager_provider(_model: str) -> Any:
+    def eager_provider(_config: object) -> Any:
         nonlocal constructed
         constructed = True
         raise AssertionError("default provider must remain lazy")
 
-    monkeypatch.setattr(app_module, "AnthropicProvider", eager_provider)
+    monkeypatch.setattr(app_module, "create_provider", eager_provider)
     app = CoreApp()
 
     assert app._provider_for_runner(RuntimeConfig()) is None

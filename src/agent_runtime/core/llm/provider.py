@@ -11,6 +11,7 @@ import httpx
 
 from agent_runtime.core.bus.events import LlmModelSelectedEvent, LlmTokenEvent, LlmUsageEvent
 from agent_runtime.core.events.bus import EventBus
+from agent_runtime.core.llm.base import DEFAULT_SYSTEM_PROMPT
 from agent_runtime.core.llm.types import LlmResponse, ToolCallBlock, UsageStats
 
 _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
@@ -28,13 +29,6 @@ log = logging.getLogger(__name__)
 # 返回指定模型的最大 context window token 数
 def _context_window(model: str) -> int:
     return _MODEL_CONTEXT_WINDOWS.get(model, 200_000)
-
-
-_SYSTEM_PROMPT = (
-    "You are a helpful AI assistant. "
-    "Use the available tools to complete the user's goal. "
-    "When the goal is fully achieved, respond with a final answer and do not call any more tools."
-)
 
 
 # 返回当前 UTC 时间的 ISO 8601 字符串
@@ -72,7 +66,7 @@ class AnthropicProvider:
         system_blocks: list[dict[str, object]] = [
             {
                 "type": "text",
-                "text": system or _SYSTEM_PROMPT,
+                "text": system or DEFAULT_SYSTEM_PROMPT,
                 "cache_control": {"type": "ephemeral"},
             },
         ]

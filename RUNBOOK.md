@@ -66,8 +66,11 @@ cp .env.example .env
 | `AGENTRT_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR` |
 | `AGENTRT_LOG_FILE` | `~/.agentrt/logs/core.log` | Log file path; empty means stderr only |
 | `AGENTRT_LOG_FORMAT` | `text` | `text` or `json` |
-| `ANTHROPIC_API_KEY` | none | Required only for real LLM runs |
-| `AGENTRT_LLM_DEFAULT_MODEL` | `claude-sonnet-4-6` | Default LLM model name |
+| `AGENTRT_LLM_PROVIDER` | `anthropic` | Select `anthropic` or `openai`. TOML equivalent is `[llm].provider`. |
+| `ANTHROPIC_API_KEY` | none | Key for Anthropic Messages |
+| `OPENAI_API_KEY` | none | Key for OpenAI Chat Completions |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | API root for the OpenAI provider |
+| `AGENTRT_LLM_DEFAULT_MODEL` | `claude-sonnet-4-6` or `gpt-4.1-mini` | Overrides the selected provider's default model |
 | `AGENTRT_MAX_STEPS` | `20` | Maximum loop steps for a run |
 
 ## Development Commands
@@ -106,3 +109,4 @@ tail -f ~/.agentrt/logs/core.log
 | `Address already in use` | Another process is using the port | `AGENTRT_PORT=8000 uv run agentrt-core` |
 | `Config error: AGENTRT_PORT must be an integer` | Invalid port value in `.env` or environment | Check `AGENTRT_PORT` |
 | `ANTHROPIC_API_KEY not set` | No key is available for real LLM runs | Set the key in `.env` or shell environment |
+| `OPENAI_API_KEY not set` | The OpenAI provider has no key | Set `OPENAI_API_KEY` for Core and restart it |

@@ -256,7 +256,7 @@ Web 网关持续连接 Core，刷新浏览器后可以继续观察正在执行�
 | **连接层** | FastAPI、WebSocket；网关通过 JSON-RPC 2.0 / NDJSON TCP 连接 Core。 |
 | **运行时** | Python 3.12、asyncio、Pydantic v2；管理会话、任务、权限与事件。 |
 | **执行引擎** | Loop / LangGraph；复用模型、工具和会话接口。 |
-| **模型接入** | Anthropic Provider；通过服务端配置设置模型与 API Key。 |
+| **模型接入** | Core 支持 Anthropic Messages 和 OpenAI Chat Completions，可在服务端配置模型与密钥。 |
 | **工具环境** | Local / Kubernetes；承载命令执行与文件操作。 |
 | **持久化与扩展** | JSONL、Markdown、SQLite；支持事件回放、记忆、恢复、Skills 与 MCP。 |
 
@@ -295,6 +295,16 @@ cp .env.example .env
 ANTHROPIC_API_KEY=your-api-key
 AGENTRT_LLM_DEFAULT_MODEL=claude-sonnet-4-6
 ```
+
+使用 GPT 时，在同一个 `.env` 中选择 OpenAI，并将模型名改为该账号可用的模型。例如：
+
+```dotenv
+AGENTRT_LLM_PROVIDER=openai
+OPENAI_API_KEY=your-openai-key
+AGENTRT_LLM_DEFAULT_MODEL=gpt-4.1-mini
+```
+
+官方接口使用默认地址。兼容服务可设置 `OPENAI_BASE_URL`，填写 API 根地址（例如 `https://example.com/v1`）。已启动的 Core 在重启后读取新配置，CLI 和 Web 共用该配置。
 
 ### 2. 构建工作台
 

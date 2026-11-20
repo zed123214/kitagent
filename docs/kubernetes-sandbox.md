@@ -198,6 +198,8 @@ uv run python scripts/render_kubernetes.py \
 不要将实际凭据写入 YAML、仓库、argv 或展示日志。最后应用 Core 模板。
 Worker Pod/Service/Secret 由 Core 动态创建，`sandbox-specs.json.txt` 仅供审阅固定模板。
 
+使用 GPT 时，在 `agentrt-llm` 中存入 `OPENAI_API_KEY`，将渲染后的 `core.yaml` 中模型密钥的环境变量名和 `secretKeyRef.key` 都改为 `OPENAI_API_KEY`，并在 Core 容器设置 `AGENTRT_LLM_PROVIDER=openai`。可通过 `AGENTRT_LLM_DEFAULT_MODEL` 指定模型。
+
 ```bash
 kubectl --context "$TARGET_CONTEXT" apply -f .agentrt/kubernetes/namespaces.yaml
 kubectl --context "$TARGET_CONTEXT" apply -f .agentrt/kubernetes/rbac.yaml

@@ -66,7 +66,7 @@ from agent_runtime.core.graph.recovery import (
     RecoveryStore,
     RecoveryStoreError,
 )
-from agent_runtime.core.llm.provider import AnthropicProvider
+from agent_runtime.core.llm.factory import create_provider
 from agent_runtime.core.logging_setup import setup_logging
 from agent_runtime.core.mcp.server import McpServerManager
 from agent_runtime.core.permissions.manager import PermissionManager
@@ -167,7 +167,7 @@ class CoreApp:
     def _provider_for_compaction(self, config: RuntimeConfig) -> LLMProvider:
         if self._provider_factory is not None:
             return self._provider_factory(config)
-        return AnthropicProvider(config.llm.default_model)
+        return create_provider(config.llm)
 
     # 处理 core.ping 请求，返回服务版本、运行时长和接收时间
     async def _ping_handler(self, params: dict[str, Any]) -> PongResult:
@@ -189,7 +189,7 @@ class CoreApp:
             checkpoint_backend=config.graph.checkpoint_backend,
             sandbox_backend=config.sandbox.backend,
             durable_chat=self._durable_enabled,
-            model=config.llm.default_model,
+            model=config.llm.model,
             working_directory=str(Path.cwd()),
             permission_modes=["ask", "read_only", "auto"]
             if config.agent.engine == "loop" and config.sandbox.backend == "local"

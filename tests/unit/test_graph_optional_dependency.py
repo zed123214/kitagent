@@ -94,7 +94,7 @@ async def test_runner_reports_unavailable_before_provider_construction(
         missing_name="langgraph",
     )
     provider_constructor = Mock(side_effect=AssertionError("provider must not be constructed"))
-    monkeypatch.setattr("agent_runtime.core.runner.AnthropicProvider", provider_constructor)
+    monkeypatch.setattr("agent_runtime.core.runner.create_provider", provider_constructor)
     config = RuntimeConfig()
     config.agent.engine = "graph"
     runner = AgentRunner(
