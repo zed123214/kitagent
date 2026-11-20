@@ -198,6 +198,7 @@ async def _run_async(goal: str, config: RuntimeConfig) -> int:
 
     client.on_event(on_event)
     loop_task = asyncio.create_task(client.run_event_loop())
+    finished_task = asyncio.create_task(finished.wait())
 
     try:
         await client.send_command(
@@ -217,22 +218,21 @@ async def _run_async(goal: str, config: RuntimeConfig) -> int:
             },
         )
         await client.send_command("agent.run", {"goal": goal})
+        await asyncio.wait((loop_task, finished_task), return_when=asyncio.FIRST_COMPLETED)
+        if finished.is_set():
+            return exit_code
+
+        await loop_task
+        print("error: core disconnected before run finished", file=sys.stderr)
+        return 1
     except IpcError as e:
         print(f"error: {e}", file=sys.stderr)
-        loop_task.cancel()
-        await client.close()
         return 1
-
-    await finished.wait()
-
-    loop_task.cancel()
-    try:
-        await loop_task
-    except asyncio.CancelledError:
-        pass
-
-    await client.close()
-    return exit_code
+    finally:
+        loop_task.cancel()
+        finished_task.cancel()
+        await asyncio.gather(loop_task, finished_task, return_exceptions=True)
+        await client.close()
 
 
 # 执行 agentrt run --goal "..." 命令

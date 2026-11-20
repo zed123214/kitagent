@@ -40,7 +40,7 @@ class SocketClient:
             self._writer.close()
             try:
                 await asyncio.wait_for(self._writer.wait_closed(), timeout=1.0)
-            except TimeoutError:
+            except (TimeoutError, ConnectionError):
                 pass
 
     # 注册服务器推送事件的回调，可多次调用以添加多个 handler
