@@ -40,7 +40,7 @@ Agent Runtime Kit 将模型调用、工具执行和会话状态组织成一套�
 | **可回放的执行记录** | 流式 token、工具、权限和生命周期事件实时推送，并写入每个 run 的 `events.jsonl`。 |
 | **记忆与扩展** | 消息历史、长期笔记与压缩摘要分层保存；支持 Markdown Skills、独立上下文的子 Agent 和 MCP 工具。 |
 
-技术栈：**Python 3.12 / asyncio · Pydantic v2 · Textual · LangGraph / SQLite（可选）· Kubernetes（可选）**。当前已实现的模型 Provider 为 Anthropic。
+技术栈：**Python 3.12 / asyncio · Pydantic v2 · Textual · LangGraph / SQLite（可选）· Kubernetes（可选）**。Core 支持 Anthropic Messages 和 OpenAI Chat Completions。
 
 ## 系统架构
 
@@ -150,11 +150,21 @@ uv run --frozen --extra graph-sqlite python examples/durable_recovery_demo.py
 
 ### 再接入：真实模型与 CLI/TUI
 
-复制配置，在 `.env` 中设置 `ANTHROPIC_API_KEY`：
+复制配置。默认使用 Anthropic，其密钥由 `ANTHROPIC_API_KEY` 提供。
 
 ```bash
 cp .env.example .env
 ```
+
+使用 GPT 时，在同一个 `.env` 中选择 OpenAI，并将模型名改为该账号可用的模型。例如：
+
+```dotenv
+AGENTRT_LLM_PROVIDER=openai
+OPENAI_API_KEY=your-openai-key
+AGENTRT_LLM_DEFAULT_MODEL=gpt-4.1-mini
+```
+
+官方接口使用默认地址。兼容服务可设置 `OPENAI_BASE_URL`，填写 API 根地址（例如 `https://example.com/v1`）。已启动的 Core 在重启后读取新配置，CLI 和 Web 共用该配置。
 
 终端一启动 Core，默认监听 `127.0.0.1:7437`：
 

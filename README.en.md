@@ -30,7 +30,7 @@ execution, persistent session memory, and a unified extension model for tools,
 skills, subagents, and MCP servers.
 
 Agent Runtime Kit implements those runtime primitives in Python. The current
-provider implementation uses Anthropic models, but the core runtime is designed
+providers support Anthropic Messages and OpenAI Chat Completions. The core runtime is designed
 around provider boundaries: the main value is the runtime core, protocol, tool,
 permission, session, and event infrastructure around the model.
 
@@ -125,7 +125,7 @@ graph TD
 - Linux/macOS, WSL2, or Docker
 - Python 3.12
 - [uv](https://docs.astral.sh/uv/)
-- `ANTHROPIC_API_KEY` for real LLM runs
+- `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` for the selected provider
 
 ### Install
 
@@ -171,6 +171,16 @@ AGENTRT_LOG_FORMAT=text
 
 Never commit a real API key. Keep local secrets in `.env` or your shell
 environment.
+
+To use GPT, select OpenAI in the same `.env` and set the model to one available to your account.
+
+```dotenv
+AGENTRT_LLM_PROVIDER=openai
+OPENAI_API_KEY=your-openai-key
+AGENTRT_LLM_DEFAULT_MODEL=gpt-4.1-mini
+```
+
+The default endpoint is OpenAI. For a compatible service, set `OPENAI_BASE_URL` to its API root (for example, `https://example.com/v1`). Restart Core to apply changes to both the CLI and the web workbench.
 
 ### Run
 

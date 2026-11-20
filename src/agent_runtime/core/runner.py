@@ -33,7 +33,7 @@ from agent_runtime.core.events.writer import EventWriter
 from agent_runtime.core.graph.event_log import read_event_log
 from agent_runtime.core.graph.recovery import RecoveryStore
 from agent_runtime.core.llm.base import LLMProvider
-from agent_runtime.core.llm.provider import AnthropicProvider
+from agent_runtime.core.llm.factory import create_provider
 from agent_runtime.core.mcp.server import McpServerManager
 from agent_runtime.core.memory.loader import load_context_file
 from agent_runtime.core.permissions.manager import PermissionManager
@@ -479,11 +479,9 @@ class AgentRunner:
                     )
                 # Resolve capability before provider construction. Selecting the
                 # optional graph engine therefore yields a typed availability
-                # error even when no Anthropic API key is configured.
+                # error even when no model provider key is configured.
                 engine_builder = self._engine_resolver(self._config.agent.engine)
-                provider: LLMProvider = self._provider or AnthropicProvider(
-                    self._config.llm.default_model
-                )
+                provider: LLMProvider = self._provider or create_provider(self._config.llm)
                 if self._trace is not None:
                     provider = TracingProvider(
                         provider,

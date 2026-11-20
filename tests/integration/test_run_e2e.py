@@ -1,7 +1,7 @@
 """
 End-to-end integration test for the S1 agent pipeline.
 
-Requires a real ANTHROPIC_API_KEY — skipped automatically when absent.
+Requires a key for the configured provider — skipped automatically when absent.
 Run explicitly:
     uv run pytest tests/integration/test_run_e2e.py -v
 Or with the marker:
@@ -15,13 +15,9 @@ import os
 from pathlib import Path
 
 import pytest
-from dotenv import load_dotenv
 
-from agent_runtime.core.config import RuntimeConfig
+from agent_runtime.core.config import get_config
 from agent_runtime.core.runner import AgentRunner
-
-# Load project .env so ANTHROPIC_API_KEY is available without going through get_config()
-load_dotenv(Path(__file__).parent.parent.parent / ".env", override=False)
 
 pytestmark = pytest.mark.integration
 
@@ -37,15 +33,17 @@ def sample_file(tmp_path: Path) -> Path:
 
 
 # 功能：验证完整的端到端 agent 链路：调用真实 LLM → 执行 read_file → 成功完成并写入 events.jsonl
-# 设计：使用真实 ANTHROPIC_API_KEY 和真实文件，goal 中指定一个具体的数字（7391）以便断言 LLM 确实读了文件；
+# 设计：使用配置的模型服务和真实文件，goal 中指定一个具体的数字（7391）以便断言 LLM 确实读了文件；
 #       通过 events.jsonl 的事件序列断言每个关键阶段都被记录，而非只检查 stdout，因为 events.jsonl 是 S1 的核心验收产物
 async def test_run_e2e_reads_file_and_succeeds(
     sample_file: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        pytest.skip("ANTHROPIC_API_KEY not set")
+    config = get_config()
+    key = "OPENAI_API_KEY" if config.llm.provider == "openai" else "ANTHROPIC_API_KEY"
+    if not os.environ.get(key):
+        pytest.skip(f"{key} not set")
 
     # ReadFileTool resolves paths relative to CWD — point it at tmp_path
     monkeypatch.chdir(tmp_path)
@@ -56,7 +54,6 @@ async def test_run_e2e_reads_file_and_succeeds(
     )
     runs_dir = tmp_path / "runs"
 
-    config = RuntimeConfig()
     config.agent.max_steps = 5
 
     runner = AgentRunner(config, runs_dir=runs_dir)
