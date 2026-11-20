@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import pytest
+
+from agent_runtime.core.permissions.manager import PermissionManager
 from agent_runtime.core.permissions.policy import (
     PermissionDecision,
     ToolPolicy,
@@ -87,6 +90,29 @@ def test_relative_path_not_outside_cwd() -> None:
     assert not matches_outside_cwd("ls src/")
     assert not matches_outside_cwd("cat README.md")
     assert not matches_outside_cwd("python -m pytest")
+
+
+@pytest.mark.parametrize(
+    "argument",
+    [
+        '"/example directory/report.txt"',
+        "'../other directory/report.txt'",
+        "--input=/example/report.txt",
+        '--input="/example directory/report.txt"',
+        '"--input=../other directory/report.txt"',
+    ],
+)
+def test_outside_path_arguments_still_require_approval(argument: str) -> None:
+    params = {"command": f"inspect {argument}"}
+    policy = ToolPolicy(default=PermissionDecision.ASK, allow_patterns=["inspect"])
+    assert evaluate("bash", params, policy) == PermissionDecision.ASK
+    manager = PermissionManager()
+    manager.apply_durable_response("always_allow", "session", "bash")
+    assert manager.evaluate_durable("bash", params, "session") == (None, "ask")
+
+
+def test_quoted_relative_option_is_still_allowed() -> None:
+    assert not matches_outside_cwd('inspect --input="local directory/report.txt"')
 
 
 # 功能：验证 deny_patterns 优先于 OUTSIDE_CWD（deny 在 tier 1，先检查）

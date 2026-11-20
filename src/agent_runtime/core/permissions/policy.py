@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Literal
@@ -39,7 +40,22 @@ _OUTSIDE_CWD_RE: list[re.Pattern[str]] = [re.compile(p) for p in OUTSIDE_CWD_HEU
 
 # 判断 bash 命令是否命中 outside-cwd 启发式规则
 def matches_outside_cwd(command: str) -> bool:
-    return any(pat.search(command) for pat in _OUTSIDE_CWD_RE)
+    if any(pat.search(command) for pat in _OUTSIDE_CWD_RE):
+        return True
+
+    # Inspect shell words after quote removal, including option and assignment values.
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        for word in lexer:
+            for path in (word, word.partition("=")[2]):
+                if path.startswith(("/", "~")) or ".." in path.split("/"):
+                    return True
+    except ValueError:
+        # Ambiguous shell syntax always gets an approval prompt.
+        return True
+    return False
 
 
 @dataclass
