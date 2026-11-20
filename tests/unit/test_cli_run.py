@@ -14,11 +14,17 @@ from agent_runtime.core.config import RuntimeConfig
     ("terminal_status", "expected_exit_code"),
     [(None, 1), ("success", 0), ("failed", 1)],
 )
-async def test_run_handles_daemon_eof(
-    terminal_status: str | None, expected_exit_code: int, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize("reset", [False, True], ids=["eof", "reset"])
+async def test_run_handles_daemon_disconnect(
+    terminal_status: str | None,
+    expected_exit_code: int,
+    reset: bool,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     reader = asyncio.StreamReader()
     writer = Mock(spec=asyncio.StreamWriter)
+    if reset:
+        writer.wait_closed.side_effect = ConnectionResetError()
 
     def send_response(data: bytes) -> None:
         request = json.loads(data)
@@ -47,7 +53,11 @@ async def test_run_handles_daemon_eof(
 
         reader.feed_data("".join(json.dumps(message) + "\n" for message in messages).encode())
         if request["method"] == "agent.run":
-            reader.feed_eof()
+            if reset:
+                # Deliver buffered replies/events before the next read reports the reset.
+                asyncio.get_running_loop().call_soon(reader.set_exception, ConnectionResetError())
+            else:
+                reader.feed_eof()
 
     writer.write.side_effect = send_response
     with patch.object(asyncio, "open_connection", AsyncMock(return_value=(reader, writer))):
