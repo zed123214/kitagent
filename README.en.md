@@ -263,7 +263,7 @@ Use **Local** tools for development, or enable **Kubernetes Sandbox** to create 
 | **Transport** | FastAPI and WebSocket; the gateway connects to Core through JSON-RPC 2.0 / NDJSON TCP. |
 | **Runtime** | Python 3.12, asyncio, Pydantic v2; sessions, tasks, permissions, and events. |
 | **Engines** | Loop / LangGraph; shared model, tool, and session interfaces. |
-| **Model integration** | Anthropic Provider; server-side model and API key configuration. |
+| **Model integration** | Core supports Anthropic Messages and OpenAI Chat Completions with server-side model and API key configuration. |
 | **Tool environments** | Local / Kubernetes; command execution and file operations. |
 | **Storage and extensions** | JSONL, Markdown, SQLite; replay, memory, recovery, Skills, and MCP. |
 
@@ -302,6 +302,16 @@ Edit `.env` with your model configuration:
 ANTHROPIC_API_KEY=your-api-key
 AGENTRT_LLM_DEFAULT_MODEL=claude-sonnet-4-6
 ```
+
+To use GPT, select OpenAI in the same `.env` and set the model to one available to your account.
+
+```dotenv
+AGENTRT_LLM_PROVIDER=openai
+OPENAI_API_KEY=your-openai-key
+AGENTRT_LLM_DEFAULT_MODEL=gpt-4.1-mini
+```
+
+The default endpoint is OpenAI. For a compatible service, set `OPENAI_BASE_URL` to its API root (for example, `https://example.com/v1`). Restart Core to apply changes to both the CLI and the web workbench.
 
 ### 2. Build the workbench
 

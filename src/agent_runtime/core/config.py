@@ -28,6 +28,7 @@ _DEFAULT_DATA_ROOT = "~/.agentrt"
 _DEFAULT_SQLITE_CHECKPOINT_FILE = "graph-checkpoints.sqlite3"
 
 type EngineName = Literal["loop", "graph"]
+type LlmProviderName = Literal["anthropic", "openai"]
 type CheckpointBackend = Literal["memory", "sqlite"]
 type SandboxBackendName = Literal["local", "kubernetes"]
 
@@ -57,8 +58,14 @@ class GraphConfig:
 
 @dataclass
 class LlmConfig:
-    default_model: str = _DEFAULT_MODEL
+    default_model: str | None = None
     router: str = "static"  # "static" | "rule_based" (S4) | "cost_budget" (S6)
+    provider: LlmProviderName = "anthropic"
+
+    @property
+    def model(self) -> str:
+        fallback = "gpt-4.1-mini" if self.provider == "openai" else _DEFAULT_MODEL
+        return self.default_model or fallback
 
 
 @dataclass
@@ -149,6 +156,12 @@ def get_config() -> RuntimeConfig:
     if config.trace.file == _DEFAULT_TRACE_FILE:
         config.trace.file = str(data_root / "traces" / "daemon.jsonl")
     return config
+
+
+def _parse_llm_provider(value: object) -> LlmProviderName:
+    if value not in ("anthropic", "openai"):
+        raise SystemExit("Config error: llm.provider must be 'anthropic' or 'openai'")
+    return value
 
 
 def _parse_sandbox_backend(value: object, source: str) -> SandboxBackendName:
@@ -327,9 +340,11 @@ def _apply_toml(config: RuntimeConfig, data: dict[str, Any]) -> None:
         llm = data["llm"]
         if not isinstance(llm, dict):
             raise SystemExit("Config error: [llm] must be a table")
-        unknown_llm: set[str] = set(llm.keys()) - {"default_model", "router"}
+        unknown_llm: set[str] = set(llm.keys()) - {"default_model", "router", "provider"}
         if unknown_llm:
             raise SystemExit(f"Unknown [llm] keys: {', '.join(sorted(unknown_llm))}")
+        if "provider" in llm:
+            config.llm.provider = _parse_llm_provider(llm["provider"])
         if "default_model" in llm:
             val = llm["default_model"]
             if not isinstance(val, str):
@@ -590,6 +605,9 @@ def _apply_env(config: RuntimeConfig) -> None:
             )
         config.graph.trace_event_limit = trace_event_limit_value
 
+    provider = os.environ.get("AGENTRT_LLM_PROVIDER")
+    if provider is not None:
+        config.llm.provider = _parse_llm_provider(provider)
     default_model = os.environ.get("AGENTRT_LLM_DEFAULT_MODEL")
     if default_model is not None:
         config.llm.default_model = default_model

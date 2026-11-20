@@ -32,6 +32,7 @@ async def running_daemon(
     env["AGENTRT_LOG_FILE"] = ""
     env["AGENTRT_LOG_LEVEL"] = "WARNING"
     env["ANTHROPIC_API_KEY"] = ""
+    env["OPENAI_API_KEY"] = ""
 
     proc = subprocess.Popen([sys.executable, "-m", "agent_runtime.core"], env=env)
 
