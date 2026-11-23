@@ -429,7 +429,6 @@ class AgentRunner:
             project_context=project_ctx,
             system_prompt_override=system_prompt_override,
         )
-        prefill_len = len(history)
 
         async with EventWriter(event_path, run_id=run_id) as writer:
             # Persist the run-scoped event before forwarding it to external/global
@@ -756,7 +755,7 @@ class AgentRunner:
                 transcript_count = 0
                 transcript_hash: str | None = None
                 if session is not None and store is not None:
-                    run_messages = context.messages[prefill_len:]
+                    run_messages = context.run_messages()
                     if committed_run_messages:
                         if (
                             len(context.messages) < len(committed_run_messages)
