@@ -63,10 +63,9 @@ def test_compact_messages_returns_summary(tmp_path: Path) -> None:
     assert result.summary_text == expected
 
 
-# 功能：验证 compact() 将 context.messages 替换为两条摘要消息对
-# 设计：调用 compact() 后断言 messages 长度为 2，role 分别为 user/assistant
+# 下一次模型调用从用户角色的交接摘要续写。
 def test_compact_replaces_context_messages(tmp_path: Path) -> None:
-    provider = _stub_provider()
+    provider = _stub_provider(summary="Continue from step two.")
     bus = EventBus()
     compactor = Compactor(bus, tmp_path, "sess-1")
     ctx = ExecutionContext(run_id="r1", goal="test", max_steps=5)
@@ -74,9 +73,7 @@ def test_compact_replaces_context_messages(tmp_path: Path) -> None:
 
     asyncio.run(compactor.compact(ctx, provider))
 
-    assert len(ctx.messages) == 2
-    assert ctx.messages[0]["role"] == "user"
-    assert ctx.messages[1]["role"] == "assistant"
+    assert ctx.messages == [{"role": "user", "content": "Continue from step two."}]
 
 
 # 功能：验证 compact() 在 session 目录写入 summary_*.md 文件

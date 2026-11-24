@@ -23,13 +23,28 @@ class ExecutionContext:
     result: str = ""
     # skill 或 subagent 角色可覆盖默认 system prompt
     system_prompt_override: str | None = None
+    _run_start: int = field(init=False, repr=False)
+    _compacted_run_messages: list[dict[str, Any]] = field(
+        default_factory=list, init=False, repr=False
+    )
 
     # 初始化消息历史，优先使用 session 完整回放内容
     def __post_init__(self) -> None:
+        self._run_start = len(self.prefill_messages)
         if self.prefill_messages:
             self.messages = [dict(m) for m in self.prefill_messages]
         elif not self.messages:
             self.messages.append({"role": "user", "content": self.goal})
+
+    def apply_compaction(self, summary: str, *, retain_transcript: bool) -> None:
+        if retain_transcript:
+            self._compacted_run_messages.extend(self.messages[self._run_start :])
+        self.messages = [{"role": "user", "content": summary}]
+        # The synthetic handoff seeds the next model call, just like the initial prefill.
+        self._run_start = len(self.messages)
+
+    def run_messages(self) -> list[dict[str, Any]]:
+        return self._compacted_run_messages + self.messages[self._run_start :]
 
     # 返回当前 run 的 system prompt；有 override 时跳过 base，直接注入记忆层
     def system_prompt(self, base: str) -> str:

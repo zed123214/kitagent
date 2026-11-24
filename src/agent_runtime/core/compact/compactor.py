@@ -80,10 +80,7 @@ class Compactor:
         if result is None:
             return None
 
-        context.messages = [
-            {"role": "user", "content": result.summary_text},
-            {"role": "assistant", "content": "Understood, I'll continue from this summary."},
-        ]
+        context.apply_compaction(result.summary_text, retain_transcript=bool(self._session_id))
         self._write_summary(result.summary_text)
         await self._bus.publish(
             ContextCompactedEvent(
