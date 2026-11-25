@@ -67,20 +67,9 @@ Choose Read-only, Ask as needed, or Auto-approve for a session. View and revoke 
 
 This runnable example reads two archived SparseFlashAttentionGrad experiments on Ascend 910B3. Each candidate has its own paired baseline. The first partition ran slower in both execution orders, so the graph advances to the next candidate. Redistributing the reductions improved both timings and sent the revised candidate to human review.
 
-```mermaid
-flowchart LR
-    A[plan] --> B[validate]
-    B -->|pass| C[benchmark]
-    B -->|fail| D[diagnose]
-    C -->|regression| D
-    D -->|next attempt| B
-    D -->|limit reached| F[fallback]
-    C -->|accepted| E[review interrupt]
-    E -->|approve| G[deliver]
-    E -->|reject| F
-    G --> H[report]
-    F --> H
-```
+![Operator candidate workflow from correctness and benchmarking to review, retry, or baseline retention](docs/assets/operator-workflow-en.png)
+
+[Edit the draw.io source](docs/assets/operator-workflow-en.drawio)
 
 | LangGraph pattern | Implementation | What you see |
 | --- | --- | --- |

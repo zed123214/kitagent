@@ -64,20 +64,9 @@ Web、CLI 和 TUI 共用一个 Core。你也可以把自己的源码、参考实
 
 这个可运行示例读取 SparseFlashAttentionGrad 在 Ascend 910B3 上的两轮归档实测。每个候选都与当轮基线配对比较。初版在两种执行顺序下都变慢，状态机转入下一轮。重新分配归约任务后，两种顺序都变快，候选进入人工审核。
 
-```mermaid
-flowchart LR
-    A[plan 任务规划] --> B[validate 精度检查]
-    B -->|通过| C[benchmark 性能评估]
-    B -->|失败| D[diagnose 诊断与迭代]
-    C -->|退化| D
-    D -->|继续迭代| B
-    D -->|达到上限| F[fallback 保留基线]
-    C -->|达标| E[review 审核中断]
-    E -->|approve| G[deliver 接受候选]
-    E -->|reject| F
-    G --> H[report 输出报告]
-    F --> H
-```
+![算子候选评估流程，从精度检查、性能评估到审核、迭代或保留基线](docs/assets/operator-workflow-zh.png)
+
+[编辑 draw.io 源图](docs/assets/operator-workflow-zh.drawio)
 
 | LangGraph 场景 | 示例实现 | 你能看到什么 |
 | --- | --- | --- |
