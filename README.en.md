@@ -2,9 +2,9 @@
 
 <h1>KitAgent</h1>
 
-<p><strong>Bring an AI agent into development, testing, and performance optimization</strong></p>
+<p><strong>An open-source agent runtime for operator development and validation</strong></p>
+<p>Review code edits, run correctness checks, and compare candidate timings with a baseline in one workbench.</p>
 
-<p>An open-source AI agent runtime and visual workbench</p>
 <p><sub>Conversational tasks · Live tool tracking · Human approval · Session memory · Kubernetes sandboxes</sub></p>
 
 <p>
@@ -18,7 +18,7 @@
 
 [中文](README.md) · **English**
 
-[Demo](#demo) · [Operator Optimization](#operator-demo) · [Features](#features) · [Architecture](#architecture) · [Quick Start](#quick-start) · [Documentation](#docs)
+[Equal demo](#demo) · [Candidate selection](#operator-workflow) · [Ascend C cases](#operator-demo) · [Features](#features) · [Architecture](#architecture) · [Quick Start](#quick-start) · [Documentation](#docs)
 
 <p><a href="https://github.com/zed123214/kitagent"><strong>⭐ Star KitAgent</strong></a> · <a href="#quick-start">Get started</a> · <a href="#operator-demo">Explore operator optimization</a></p>
 
@@ -26,19 +26,15 @@
 
 ---
 
-KitAgent is an open-source AI agent runtime and visual workbench. Describe a development goal; let the agent read code, edit files, and run commands.
+When Equal compares a scalar with a list, reading the scalar once avoids recomputing its index for every element. Does the change still handle empty inputs and NaN? Which input sizes benefit? In KitAgent you can inspect the implementation, check the test output, and compare timings for each input in the same run.
 
-Inspect tool output, handle approvals, and keep working in the same conversation.
-
-Use it to connect analysis, experiments, and delivery, from repository checks to operator optimization. The **Equal** and **SparseFlashAttentionGrad** walkthroughs explain how to find bottlenecks, organize data, and distribute computation.
-
-A persistent **Core** manages execution and sessions, with **Web / CLI / TUI** interfaces, **Loop / LangGraph** engines, and **Local / Kubernetes** tool environments.
+The Web, CLI, and TUI share one Core. Bring your own source, reference implementation, and test commands to continue editing and testing with a model in the same session. [Runtime architecture](docs/architecture.md)
 
 <a id="demo"></a>
 
-## 📸 Demo
+## Run Python Equal in the workbench
 
-**From an operator specification to implementation, correctness checks, and measured performance.**
+This offline example uses scripted model responses to write a one-dimensional Python implementation. The tools write files and run the checks locally, with fresh CPU timings on each run. [Run the demo locally](docs/web-workbench.md#无-api-key-的真实工具演示)
 
 ![KitAgent operator demo: implement Equal, approve tests, compare measured performance, and export the report](docs/assets/equal-operator-demo.gif)
 
@@ -47,16 +43,14 @@ A persistent **Core** manages execution and sessions, with **Web / CLI / TUI** i
   <a href="docs/assets/equal-operator-overview.png">Full-resolution screenshot</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm">Download the full video</a> · <a href="docs/web-workbench.md">Launch the workbench</a>
 </p>
 
-For an `Equal` operator development task, start with:
-
-> Develop an Equal operator with scalar broadcasting, verify correctness, benchmark it against the baseline, and write a development report.
-
-| Step | What you see in the workbench |
+| Question | What to inspect |
 | --- | --- |
-| **① Confirm the specification** | Read the Equal specification, including scalar broadcasting and edge cases. |
-| **② Write the implementation** | Approve the source file; specialize equal-length and broadcast paths to remove per-element modulo indexing. |
-| **③ Validate and measure** | Approve the test command: 75 correctness cases and three benchmark inputs, with 3 warmups and 9 samples each. |
-| **④ Deliver the report** | Approve the report file, read it back, and export conclusions, tool evidence, and approval records. |
+| What changed? | The implementation written to `operators/equal_<run_id>.py` handles equal lengths, a left scalar, and a right scalar separately. The reference uses modulo indexing for each element. |
+| Are the outputs correct? | `check.py` runs 75 cases covering broadcasting in both directions, empty inputs, NaN, incompatible lengths, and fixed-seed random inputs. |
+| Which shapes benefit? | Two equal-length inputs (1,024 and 65,536 elements) and one right-scalar broadcast (65,536 vs. 1) each get three warmups. The script alternates execution order and reports the median of nine samples per implementation, including output list allocation. |
+| Can I check the numbers? | `benchmarks/<run_id>.json` stores the environment and raw samples. `reports/<run_id>.md` uses the successful tool output from that run. |
+
+[Candidate, reference, and benchmark code](src/agent_runtime/web/demo_operator.py)
 
 <details>
 <summary><strong>See tool calls and human approval</strong></summary>
@@ -67,19 +61,55 @@ Choose Read-only, Ask as needed, or Auto-approve for a session. View and revoke 
 
 </details>
 
-<p align="center"><sub>Built-in offline demo · Scripted model responses + live tool execution · <a href="docs/web-workbench.md#无-api-key-的真实工具演示">Try it locally</a></sub></p>
+<a id="operator-workflow"></a>
+
+## Select operator candidates with LangGraph
+
+This runnable example reads two archived SparseFlashAttentionGrad experiments on Ascend 910B3. Each candidate has its own paired baseline. The first partition ran slower in both execution orders, so the graph advances to the next candidate. Redistributing the reductions improved both timings and sent the revised candidate to human review.
+
+```mermaid
+flowchart LR
+    A[plan] --> B[validate]
+    B -->|pass| C[benchmark]
+    B -->|fail| D[diagnose]
+    C -->|regression| D
+    D -->|next attempt| B
+    D -->|limit reached| F[fallback]
+    C -->|accepted| E[review interrupt]
+    E -->|approve| G[deliver]
+    E -->|reject| F
+    G --> H[report]
+    F --> H
+```
+
+| LangGraph pattern | Implementation | What you see |
+| --- | --- | --- |
+| Stateful workflow | `StateGraph` stores phase, candidate index, decision history, and selected version | Results and rejected candidates remain in state |
+| Conditional routing | Correctness and performance select the next node | Failed correctness skips timing; regressions trigger diagnosis |
+| Iteration and termination | `max_attempts` bounds candidate evaluation | Exhausted attempts retain the baseline and produce a report |
+| Review and resume | `interrupt()` pauses; `Command(resume=...)` supplies the decision | Approval delivers the candidate; rejection retains the baseline |
+| Checkpointing | `InMemorySaver` holds in-process state by `thread_id` | Resume at review with completed evaluations preserved |
+| Tools and observability | The KitAgent Graph engine invokes the workflow tool; the business graph emits node updates | Follow runtime and business stages, then export a JSON report |
+
+**Run the complete workflow:**
+
+```bash
+uv run --frozen --extra graph python examples/operator_workflow_demo.py --review approve --output operator-report.json
+```
+
+Use `--review reject` to exercise rejection, or `--max-attempts 1` to exercise early termination and baseline retention. The `--review` option supplies the decision used to resume this demonstration's review checkpoint.
+
+The JSON report records paired timings for each candidate, the source of the measurements, the review decision, and the selected version.
+
+[State machine source](examples/operator_workflow_demo.py) · [Branch and recovery tests](tests/unit/test_operator_workflow_demo.py) · [KitAgent Graph engine](docs/graph-engine.md)
 
 <a id="operator-demo"></a>
 
-## 🧪 Optimize operators with an agent: Equal to SparseFlashAttentionGrad
+## Ascend C engineering cases
 
-An operator maps a mathematical operation onto data movement and hardware instructions. Comparing two values is simple. Comparing entire tensors also takes broadcast indexing, tiled transfers, and work across cores.
+These results come from Ascend C acceptance tests and device experiments. Equal illustrates how to validate a broadcast implementation. SparseFlashAttentionGrad shows how a seemingly balanced partition can still delay the pipeline.
 
-Start with Equal to learn broadcasting and buffer reuse. Then explore matrix/vector cooperation and load balancing through SparseFlashAttentionGrad.
-
-Use KitAgent to carry the analysis, edits, tests, and experiment reports through one conversation.
-
-### Equal: organize the data behind a comparison
+### Host tiling and device-side broadcasting in Equal
 
 Equal compares corresponding tensor values and returns BOOL. Inputs shaped `[2,1]` and `[1,3]` produce `[2,3]`. Address mapping lets each output tile read the corresponding values from the original inputs.
 
@@ -132,6 +162,8 @@ Locate the tail, redistribute query and reduction work together, then compare un
 | **③ Schedule work** | Which cores are busy, and which are waiting? | Assign matrix and vector work, overlap transfers with computation, and balance the full workload. |
 | **④ Compare** | What changed after the edit? | Check reference outputs, repeat matched baseline/candidate measurements, and choose the next experiment. |
 
+For related research, Kernel Forge records candidate validation results and baseline timings. AscendOptimizer removes individual optimizations and measures the device impact to identify reusable changes. [Kernel Forge](https://arxiv.org/abs/2607.24762) · [AscendOptimizer](https://arxiv.org/abs/2603.23566)
+
 Further reading: Xiaolin Coding's [Star Cup operator-optimization walkthrough](https://mp.weixin.qq.com/s/Sr8wVJQw0Pt6xZSOtdHp2w) explains data movement, tiling, reuse, and task allocation.
 
 ### Run the workflow in KitAgent
@@ -170,46 +202,6 @@ For larger tasks, use [Subagents](docs/skills-subagents-mcp.md) to study algorit
 </details>
 
 **Ready for your first experiment?** [Launch the workbench](#quick-start) and bring your own task. Give KitAgent a [**⭐ Star**](https://github.com/zed123214/kitagent) to support the project and find it again for your next experiment.
-
-### LangGraph in action: an operator optimization state machine
-
-Organize operator optimization as a traceable workflow: **plan, validate, benchmark, revise, review, and deliver**. Nodes update shared state; validation results and review decisions determine the next step.
-
-```mermaid
-flowchart LR
-    A[plan] --> B[validate]
-    B -->|pass| C[benchmark]
-    B -->|fail| D[diagnose]
-    C -->|regression| D
-    D -->|next attempt| B
-    D -->|limit reached| F[fallback]
-    C -->|accepted| E[review interrupt]
-    E -->|approve| G[deliver]
-    E -->|reject| F
-    G --> H[report]
-    F --> H
-```
-
-| LangGraph pattern | Implementation | What you see |
-| --- | --- | --- |
-| Stateful workflow | `StateGraph` stores phase, candidate index, decision history, and selected version | Results and rejected candidates remain in state |
-| Conditional routing | Correctness and performance select the next node | Failed correctness skips timing; regressions trigger diagnosis |
-| Iteration and termination | `max_attempts` bounds candidate evaluation | Exhausted attempts retain the baseline and produce a report |
-| Review and resume | `interrupt()` pauses; `Command(resume=...)` supplies the decision | Approval delivers the candidate; rejection retains the baseline |
-| Checkpointing | `InMemorySaver` holds in-process state by `thread_id` | Resume at review with completed evaluations preserved |
-| Tools and observability | The KitAgent Graph engine invokes the workflow tool; the business graph emits node updates | Follow runtime and business stages, then export a JSON report |
-
-**Run the complete workflow:**
-
-```bash
-uv run --frozen --extra graph python examples/operator_workflow_demo.py --review approve --output operator-report.json
-```
-
-Use `--review reject` to exercise rejection, or `--max-attempts 1` to exercise early termination and baseline retention. The `--review` option supplies the decision used to resume this demonstration's review checkpoint.
-
-The included scenario uses archived SparseFlashAttentionGrad experiments: the initial five-slab regression triggers another iteration, and the rebalanced candidate reaches review. Reports retain each candidate's paired timings, changes, source, review decision, and selected version.
-
-[State machine source](examples/operator_workflow_demo.py) · [Branch and recovery tests](tests/unit/test_operator_workflow_demo.py) · [KitAgent Graph engine](docs/graph-engine.md)
 
 <a id="features"></a>
 

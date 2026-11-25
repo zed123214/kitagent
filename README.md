@@ -2,9 +2,9 @@
 
 <h1>KitAgent</h1>
 
-<p><strong>把开发任务交给 Agent，查看过程、审批工具、导出报告</strong></p>
+<p><strong>面向算子开发与验证的开源 Agent 运行时</strong></p>
+<p>在工作台中审批代码修改、运行正确性测试，并对照基线查看性能。</p>
 
-<p>开源 AI Agent 运行时与可视化工作台</p>
 <p><sub>对话驱动任务 · 实时工具追踪 · 人工审批 · 会话记忆 · Kubernetes 沙箱</sub></p>
 
 <p>
@@ -18,7 +18,7 @@
 
 **中文** · [English](README.en.md)
 
-[产品演示](#demo) · [算子优化实战](#operator-demo) · [核心能力](#features) · [系统架构](#architecture) · [快速开始](#quick-start) · [文档导航](#docs)
+[Equal 演示](#demo) · [候选筛选](#operator-workflow) · [Ascend C 案例](#operator-demo) · [核心能力](#features) · [系统架构](#architecture) · [快速开始](#quick-start) · [文档导航](#docs)
 
 <p><a href="https://github.com/zed123214/kitagent"><strong>⭐ Star KitAgent</strong></a> · <a href="#quick-start">开始使用</a> · <a href="docs/architecture.md">阅读实现</a></p>
 
@@ -26,21 +26,15 @@
 
 ---
 
-KitAgent 面向想使用、学习或扩展 AI Agent 的开发者。你描述任务，Agent 阅读代码、修改文件、执行命令；你在自己的工作台中查看工具输入输出、决定是否批准调用，并导出包含结论和执行记录的报告。
+以逐元素比较算子 Equal 为例。把一个标量和一列数比较时，可以只读一次标量，省去循环里反复计算下标的开销。改完之后，空输入和 NaN 的结果还对吗？哪些输入真的变快了？KitAgent 让你在同一次运行里查看写入的实现、测试输出和逐组计时，再导出开发报告。
 
-你可以从这三件事开始：
-
-- **完成开发任务**：让 Agent 检查仓库、执行测试、整理报告，在同一会话里补充要求、继续修改。
-- **学习 Agent 如何运行**：沿着任务、工具调用、人工审批和事件记录阅读实现，再查看会话记忆、持久化恢复与沙箱的设计。
-- **扩展自己的工作流程**：用 Markdown Skills 保存步骤，通过 MCP 接入工具，用 Subagents 拆分独立子任务。
-
-[先看操作演示](#demo)，或直接[启动工作台](#quick-start)；希望研究实现，可以从[系统架构](#architecture)进入。
+Web、CLI 和 TUI 共用一个 Core。你也可以把自己的源码、参考实现和测试命令交给模型，在同一会话里继续修改和验证。[运行时架构](docs/architecture.md)
 
 <a id="demo"></a>
 
-## 📸 产品演示
+## 在工作台运行 Python Equal
 
-**从算子规格，到实现、正确性验证与性能实测。**
+这个离线示例用固定的模型响应写入一维 Python 实现。文件工具和测试命令在本机实际运行，每次演示都会重新测量 CPU 耗时。[本地运行步骤](docs/web-workbench.md#无-api-key-的真实工具演示)
 
 ![KitAgent 算子开发演示：实现 Equal、审批测试、对比实测性能并导出报告](docs/assets/equal-operator-demo.gif)
 
@@ -49,16 +43,14 @@ KitAgent 面向想使用、学习或扩展 AI Agent 的开发者。你描述任�
   <a href="docs/assets/equal-operator-overview.png">查看高清截图</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm">下载完整视频</a> · <a href="docs/web-workbench.md">启动工作台</a>
 </p>
 
-以 `Equal` 算子开发为例：
-
-> 开发 Equal 算子，支持标量广播，验证正确性并对比基线性能，生成开发报告。
-
-| 步骤 | 你在工作台中看到的内容 |
+| 要验证的问题 | 在这次运行中查看 |
 | --- | --- |
-| **① 确认规格** | 读取 Equal 规格，明确等长比较、标量广播与边界语义。 |
-| **② 编写实现** | 审批写入算子实现，将等长与广播路径分开，移除逐元素取模索引。 |
-| **③ 验证与实测** | 审批运行测试，验证 75 个用例；对三组输入预热 3 次、采样 9 次，对比中位耗时。 |
-| **④ 交付报告** | 审批保存开发报告，读回核对结果；导出结论、工具证据和审批记录。 |
+| 改了什么？ | 写入 `operators/equal_<run_id>.py` 的实现对等长、左侧标量和右侧标量分别处理。参考实现通过逐元素取模计算下标。 |
+| 输出正确吗？ | `check.py` 检查 75 个用例，覆盖双向标量广播、空输入、NaN、不兼容长度和固定随机种子的输入。 |
+| 哪些输入变快了？ | 对两组等长输入（1,024、65,536 个元素）和一组右侧标量广播（65,536 对 1）各预热 3 次。基线与候选交替执行，分别取 9 次采样的中位数，计时包含输出列表分配。 |
+| 如何复核？ | `benchmarks/<run_id>.json` 保存环境和原始采样，`reports/<run_id>.md` 从本轮成功的工具输出生成。 |
+
+[查看候选实现、参考实现与计时脚本](src/agent_runtime/web/demo_operator.py)
 
 ### 工具调用与人工审批
 
@@ -66,17 +58,55 @@ KitAgent 面向想使用、学习或扩展 AI Agent 的开发者。你描述任�
 
 工作台提供「只读 / 按需询问 / 自动批准」三种会话权限模式，并支持查看和撤销已记住的工具授权。
 
-<p align="center"><sub>内置离线演示 · 脚本化模型响应 + 实际工具执行 · <a href="docs/web-workbench.md#无-api-key-的真实工具演示">在本机体验</a></sub></p>
+<a id="operator-workflow"></a>
+
+## 用 LangGraph 筛选算子候选
+
+这个可运行示例读取 SparseFlashAttentionGrad 在 Ascend 910B3 上的两轮归档实测。每个候选都与当轮基线配对比较。初版在两种执行顺序下都变慢，状态机转入下一轮。重新分配归约任务后，两种顺序都变快，候选进入人工审核。
+
+```mermaid
+flowchart LR
+    A[plan 任务规划] --> B[validate 精度检查]
+    B -->|通过| C[benchmark 性能评估]
+    B -->|失败| D[diagnose 诊断与迭代]
+    C -->|退化| D
+    D -->|继续迭代| B
+    D -->|达到上限| F[fallback 保留基线]
+    C -->|达标| E[review 审核中断]
+    E -->|approve| G[deliver 接受候选]
+    E -->|reject| F
+    G --> H[report 输出报告]
+    F --> H
+```
+
+| LangGraph 场景 | 示例实现 | 你能看到什么 |
+| --- | --- | --- |
+| 有状态工作流 | `StateGraph` 保存阶段、候选序号、决策历史和选中版本 | 每轮结果随状态流转，失败记录持续保留 |
+| 条件路由 | 精度与性能结果决定后继节点 | 精度失败跳过计时，性能退化进入诊断 |
+| 迭代与终止 | `max_attempts` 控制候选轮次 | 预算耗尽后保留基线并生成报告 |
+| 审核与恢复 | `interrupt()` 暂停，`Command(resume=...)` 传回决定 | 批准后交付，拒绝后保留基线 |
+| 检查点 | `InMemorySaver` 按 `thread_id` 保存进程内状态 | 从审核节点续跑，已完成的评估保持原样 |
+| 工具集成与观测 | KitAgent Graph 引擎调用工作流工具，业务图输出节点更新 | 同时观察 `model / kit_tools` 与业务阶段，导出 JSON 报告 |
+
+**运行一次完整流程：**
+
+```bash
+uv run --frozen --extra graph python examples/operator_workflow_demo.py --review approve --output operator-report.json
+```
+
+切换 `--review reject` 查看审核拒绝分支；设置 `--max-attempts 1` 查看提前结束与基线保留。`--review` 指定本次演示在审核检查点恢复时使用的决定。
+
+JSON 报告保存每个候选的基线与候选耗时、数据来源、审核决定和最终选中的版本。
+
+[查看状态机代码](examples/operator_workflow_demo.py) · [查看分支与恢复测试](tests/unit/test_operator_workflow_demo.py) · [了解 KitAgent Graph 引擎](docs/graph-engine.md)
 
 <a id="operator-demo"></a>
 
-## 🧪 用 Agent 做算子优化：从 Equal 到 SparseFlashAttentionGrad
+## Ascend C 算子工程案例
 
-算子把数学运算变成硬件上的数据搬运与计算。以 `Equal` 为例，比较两个数只需一步，但处理整块 Tensor 时，还要安排广播索引、分块搬运和多核执行。性能优化就从这些安排入手。
+下面的结果来自 Ascend C 工程验收和板端实验。Equal 展示如何验证广播实现，SparseFlashAttentionGrad 展示为什么一次看似均衡的分片仍可能拖慢整条流水线。
 
-这里用两个案例带你走完开发过程：从 Equal 学会广播、分块与复用，再用 SparseFlashAttentionGrad 理解矩阵核与向量核协作、流水排程和负载均衡。你可以在 KitAgent 中逐轮分析、修改、执行测试，并查看每一步的工具输出。
-
-### Equal：一次比较背后的数据安排
+### Equal 的 Host 分块与设备端广播
 
 `Equal` 对两个 Tensor 逐元素比较，输出 BOOL。输入 `[2,1]` 和 `[1,3]` 时，输出是 `[2,3]`：一边沿列重复，另一边沿行重复。实现时可以通过地址映射读取原输入，让每一块输出找到对应的数据。
 
@@ -129,6 +159,8 @@ KitAgent 面向想使用、学习或扩展 AI Agent 的开发者。你描述任�
 | **③ 安排并行** | 哪些核在忙，哪些核在等？ | 让矩阵核做矩阵乘、向量核处理系数；交叠搬运与计算，按实际工作量分配任务。 |
 | **④ 对照验证** | 这项改动带来了什么变化？ | 对齐输入和环境，检查参考输出，重复测量基线与候选，记录差异并选择下一项优化。 |
 
+相关研究中，Kernel Forge 记录候选的验证结果与基线耗时，AscendOptimizer 通过撤掉单项优化并上板复测来判断其贡献。[Kernel Forge](https://arxiv.org/abs/2607.24762) · [AscendOptimizer](https://arxiv.org/abs/2603.23566)
+
 延伸阅读：小林coding 的[《杀进决赛！这 28 支队伍把算子优化卷疯了！》](https://mp.weixin.qq.com/s/Sr8wVJQw0Pt6xZSOtdHp2w)从数据搬运、分块复用和任务分配讲解算子优化。
 
 ### 把这套方法交给 KitAgent
@@ -161,48 +193,6 @@ KitAgent 面向想使用、学习或扩展 AI Agent 的开发者。你描述任�
 处理更大的任务时，可用 [Subagents](docs/skills-subagents-mcp.md) 分别研究算法、流水线和测试，由主任务汇总方案、安排设备测量并完成集成。将成熟步骤整理为 Skills，下一次开发继续复用。
 
 [启动工作台](#quick-start)，把你的算子优化任务交给 Agent。
-
-<a id="operator-workflow"></a>
-
-### LangGraph 实战：算子优化状态机
-
-把一次算子优化组织成可追踪的工作流：**制定计划、验证候选、评估性能、诊断重试、审核交付**。每个节点更新共享状态，下一步由验证结果与审核决定驱动。
-
-```mermaid
-flowchart LR
-    A[plan 任务规划] --> B[validate 精度检查]
-    B -->|通过| C[benchmark 性能评估]
-    B -->|失败| D[diagnose 诊断与迭代]
-    C -->|退化| D
-    D -->|继续迭代| B
-    D -->|达到上限| F[fallback 保留基线]
-    C -->|达标| E[review 审核中断]
-    E -->|approve| G[deliver 接受候选]
-    E -->|reject| F
-    G --> H[report 输出报告]
-    F --> H
-```
-
-| LangGraph 场景 | 示例实现 | 你能看到什么 |
-| --- | --- | --- |
-| 有状态工作流 | `StateGraph` 保存阶段、候选序号、决策历史和选中版本 | 每轮结果随状态流转，失败记录持续保留 |
-| 条件路由 | 精度与性能结果决定后继节点 | 精度失败跳过计时，性能退化进入诊断 |
-| 迭代与终止 | `max_attempts` 控制候选轮次 | 预算耗尽后保留基线并生成报告 |
-| 审核与恢复 | `interrupt()` 暂停，`Command(resume=...)` 传回决定 | 批准后交付，拒绝后保留基线 |
-| 检查点 | `InMemorySaver` 按 `thread_id` 保存进程内状态 | 从审核节点续跑，已完成的评估保持原样 |
-| 工具集成与观测 | KitAgent Graph 引擎调用工作流工具，业务图输出节点更新 | 同时观察 `model / kit_tools` 与业务阶段，导出 JSON 报告 |
-
-**运行一次完整流程：**
-
-```bash
-uv run --frozen --extra graph python examples/operator_workflow_demo.py --review approve --output operator-report.json
-```
-
-切换 `--review reject` 查看审核拒绝分支；设置 `--max-attempts 1` 查看提前结束与基线保留。`--review` 指定本次演示在审核检查点恢复时使用的决定。
-
-内置案例使用 SparseFlashAttentionGrad 的归档实验记录：五分片初稿退化后进入下一轮，重分配候选通过评估后进入审核。报告保留各候选的对照耗时、变化率、来源、审核决定及最终版本。
-
-[查看状态机代码](examples/operator_workflow_demo.py) · [查看分支与恢复测试](tests/unit/test_operator_workflow_demo.py) · [了解 KitAgent Graph 引擎](docs/graph-engine.md)
 
 <a id="features"></a>
 
