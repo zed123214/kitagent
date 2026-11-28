@@ -51,7 +51,7 @@
 
 <a id="operator-workflow"></a>
 
-## 用 LangGraph 筛选算子候选
+## 用配对实测筛选候选算子实现
 
 这个可运行示例读取 SparseFlashAttentionGrad 在 Ascend 910B3 上的两轮归档实测。每个候选都与当轮基线配对比较。初版在两种执行顺序下都变慢，状态机转入下一轮。重新分配归约任务后，两种顺序都变快，候选进入人工审核。
 
@@ -59,7 +59,10 @@
 
 [编辑 draw.io 源图](docs/assets/operator-workflow-zh.drawio)
 
-| LangGraph 场景 | 示例实现 | 你能看到什么 |
+<details>
+<summary>实现细节 · 分支、检查点与人工审核</summary>
+
+| 工作流环节 | 示例实现 | 你能看到什么 |
 | --- | --- | --- |
 | 有状态工作流 | `StateGraph` 保存阶段、候选序号、决策历史和选中版本 | 每轮结果随状态流转，失败记录持续保留 |
 | 条件路由 | 精度与性能结果决定后继节点 | 精度失败跳过计时，性能退化进入诊断 |
@@ -68,7 +71,9 @@
 | 检查点 | `InMemorySaver` 按 `thread_id` 保存进程内状态 | 从审核节点续跑，已完成的评估保持原样 |
 | 工具集成与观测 | KitAgent Graph 引擎调用工作流工具，业务图输出节点更新 | 同时观察 `model / kit_tools` 与业务阶段，导出 JSON 报告 |
 
-**运行一次完整流程：**
+</details>
+
+**运行筛选示例**
 
 ```bash
 uv run --frozen --extra graph python examples/operator_workflow_demo.py --review approve --output operator-report.json
@@ -202,7 +207,7 @@ Web 网关持续连接 Core，刷新浏览器后可以继续观察正在执行�
 
 ### 执行引擎与持久化恢复
 
-默认 **Loop** 引擎运行模型与工具循环；可选 **LangGraph** 引擎提供显式节点编排。启用 **Graph + SQLite + Local** 后，可保存执行检查点与审批中断，在 Core 重启后续接任务，并复用已经记录的工具结果。
+默认的 Loop 引擎负责模型与工具调用。需要显式编排时，可选用基于 LangGraph 的 Graph 引擎。启用 **Graph + SQLite + Local** 后，可保存执行检查点与审批中断，在 Core 重启后续接任务，并复用已经记录的工具结果。
 
 ### 按会话组织的 Kubernetes 沙箱
 
@@ -225,7 +230,7 @@ Web 网关持续连接 Core，刷新浏览器后可以继续观察正在执行�
 | **交互层** | React 19、TypeScript、assistant-ui、Textual；提供 Web、CLI 与 TUI。 |
 | **连接层** | FastAPI、WebSocket；网关通过 JSON-RPC 2.0 / NDJSON TCP 连接 Core。 |
 | **运行时** | Python 3.12、asyncio、Pydantic v2；管理会话、任务、权限与事件。 |
-| **执行引擎** | Loop / LangGraph；复用模型、工具和会话接口。 |
+| **执行引擎** | Loop 与 Graph 共用模型、工具和会话接口。 |
 | **模型接入** | Core 支持 Anthropic Messages 和 OpenAI Chat Completions，可在服务端配置模型与密钥。 |
 | **工具环境** | Local / Kubernetes；承载命令执行与文件操作。 |
 | **持久化与扩展** | JSONL、Markdown、SQLite；支持事件回放、记忆、恢复、Skills 与 MCP。 |

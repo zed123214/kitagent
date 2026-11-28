@@ -51,7 +51,7 @@ Choose Read-only, Ask as needed, or Auto-approve for a session. View and revoke 
 
 <a id="operator-workflow"></a>
 
-## Select operator candidates with LangGraph
+## Benchmark and select kernel candidates
 
 This runnable example reads two archived SparseFlashAttentionGrad experiments on Ascend 910B3. Each candidate has its own paired baseline. The first partition ran slower in both execution orders, so the graph advances to the next candidate. Redistributing the reductions improved both timings and sent the revised candidate to human review.
 
@@ -59,7 +59,10 @@ This runnable example reads two archived SparseFlashAttentionGrad experiments on
 
 [Edit the draw.io source](docs/assets/operator-workflow-en.drawio)
 
-| LangGraph pattern | Implementation | What you see |
+<details>
+<summary>Implementation details · routing, checkpoints, and approval</summary>
+
+| Workflow step | Implementation | What you see |
 | --- | --- | --- |
 | Stateful workflow | `StateGraph` stores phase, candidate index, decision history, and selected version | Results and rejected candidates remain in state |
 | Conditional routing | Correctness and performance select the next node | Failed correctness skips timing; regressions trigger diagnosis |
@@ -67,6 +70,8 @@ This runnable example reads two archived SparseFlashAttentionGrad experiments on
 | Review and resume | `interrupt()` pauses; `Command(resume=...)` supplies the decision | Approval delivers the candidate; rejection retains the baseline |
 | Checkpointing | `InMemorySaver` holds in-process state by `thread_id` | Resume at review with completed evaluations preserved |
 | Tools and observability | The KitAgent Graph engine invokes the workflow tool; the business graph emits node updates | Follow runtime and business stages, then export a JSON report |
+
+</details>
 
 **Run the complete workflow:**
 
@@ -208,7 +213,7 @@ Keep conversation history, long-term notes, and compact summaries across turns. 
 
 ### Engine choice and durable recovery
 
-Use the default **Loop** engine for model–tool execution or **LangGraph** for explicit node orchestration. With **Graph + SQLite + Local**, save checkpoints and approval interrupts, resume after a Core restart, and reuse recorded tool results.
+The default Loop engine runs the model and tools. The optional Graph engine uses LangGraph for explicit workflows. With **Graph + SQLite + Local**, save checkpoints and approval interrupts, resume after a Core restart, and reuse recorded tool results.
 
 ### Kubernetes workspaces per session
 
@@ -231,7 +236,7 @@ Use **Local** tools for development, or enable **Kubernetes Sandbox** to create 
 | **Interfaces** | React 19, TypeScript, assistant-ui, Textual; Web, CLI, and TUI. |
 | **Transport** | FastAPI and WebSocket; the gateway connects to Core through JSON-RPC 2.0 / NDJSON TCP. |
 | **Runtime** | Python 3.12, asyncio, Pydantic v2; sessions, tasks, permissions, and events. |
-| **Engines** | Loop / LangGraph; shared model, tool, and session interfaces. |
+| **Engines** | Loop and Graph share the same model, tool, and session interfaces. |
 | **Model integration** | Core supports Anthropic Messages and OpenAI Chat Completions with server-side model and API key configuration. |
 | **Tool environments** | Local / Kubernetes; command execution and file operations. |
 | **Storage and extensions** | JSONL, Markdown, SQLite; replay, memory, recovery, Skills, and MCP. |
