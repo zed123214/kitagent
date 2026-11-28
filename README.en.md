@@ -2,46 +2,41 @@
 
 <h1>KitAgent</h1>
 
-<p><strong>An open-source agent runtime for operator development and validation</strong></p>
-<p>Review code edits, run correctness checks, and compare candidate timings with a baseline in one workbench.</p>
-
-<p><sub>Conversational tasks · Live tool tracking · Human approval · Session memory · Kubernetes sandboxes</sub></p>
+<p><strong>An open-source coding agent harness for kernel development</strong><br />Edit a kernel, check its outputs, and benchmark it against a baseline in one session.</p>
 
 <p>
   <a href="https://github.com/zed123214/kitagent/actions/workflows/ci.yml"><img src="https://github.com/zed123214/kitagent/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/zed123214/kitagent/stargazers"><img src="https://img.shields.io/github/stars/zed123214/kitagent?style=flat&logo=github" alt="GitHub stars" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12" /></a>
-  <a href="frontend/package.json"><img src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" alt="React 19" /></a>
-  <a href="docs/kubernetes-sandbox.md"><img src="https://img.shields.io/badge/Kubernetes-Sandbox-326CE5?logo=kubernetes&logoColor=white" alt="Kubernetes Sandbox" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-F5C542" alt="MIT License" /></a>
 </p>
 
 [中文](README.md) · **English**
 
-[Equal demo](#demo) · [Candidate selection](#operator-workflow) · [Ascend C cases](#operator-demo) · [Features](#features) · [Architecture](#architecture) · [Quick Start](#quick-start) · [Documentation](#docs)
-
-<p><a href="https://github.com/zed123214/kitagent"><strong>⭐ Star KitAgent</strong></a> · <a href="#quick-start">Get started</a> · <a href="#operator-demo">Explore operator optimization</a></p>
+[Quick start](#quick-start) · [Candidate selection](#operator-workflow) · [Ascend C kernels](#operator-demo) · [Runtime architecture](#architecture)
 
 </div>
 
----
-
-When Equal compares a scalar with a list, reading the scalar once avoids recomputing its index for every element. Does the change still handle empty inputs and NaN? Which input sizes benefit? In KitAgent you can inspect the implementation, check the test output, and compare timings for each input in the same run.
-
-The Web, CLI, and TUI share one Core. Bring your own source, reference implementation, and test commands to continue editing and testing with a model in the same session. [Runtime architecture](docs/architecture.md)
-
 <a id="demo"></a>
 
-## Run Python Equal in the workbench
+## Workbench demo
 
-This offline example uses scripted model responses to write a one-dimensional Python implementation. The tools write files and run the checks locally, with fresh CPU timings on each run. [Run the demo locally](docs/web-workbench.md#无-api-key-的真实工具演示)
+Follow a Python `Equal` kernel through a scalar-broadcast optimization, 75 correctness checks, and paired CPU benchmarks. Model responses are scripted for this demo. File edits, tests, and timings run locally.
 
 ![KitAgent operator demo: implement Equal, approve tests, compare measured performance, and export the report](docs/assets/equal-operator-demo.gif)
 
-<p align="center">
-  Equal implementation · Broadcasting and edge cases · Baseline comparison · Development report<br />
-  <a href="docs/assets/equal-operator-overview.png">Full-resolution screenshot</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm">Download the full video</a> · <a href="docs/web-workbench.md">Launch the workbench</a>
-</p>
+[Run locally](docs/web-workbench.md#无-api-key-的真实工具演示) · [Full-resolution screenshot](docs/assets/equal-operator-overview.png) · [Video](https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm)
+
+<details>
+<summary><strong>Tool calls and permissions · inspect an approval request</strong></summary>
+
+![KitAgent approval view: inspect the pending tool and arguments, then approve or reject](docs/assets/equal-operator-approval.png)
+
+Choose Read-only, Ask as needed, or Auto-approve for a session. View and revoke remembered tool grants from the permission menu.
+
+</details>
+
+<details>
+<summary><strong>Correctness and benchmarks · inputs, sampling, and raw results</strong></summary>
 
 | Question | What to inspect |
 | --- | --- |
@@ -51,13 +46,6 @@ This offline example uses scripted model responses to write a one-dimensional Py
 | Can I check the numbers? | `benchmarks/<run_id>.json` stores the environment and raw samples. `reports/<run_id>.md` uses the successful tool output from that run. |
 
 [Candidate, reference, and benchmark code](src/agent_runtime/web/demo_operator.py)
-
-<details>
-<summary><strong>See tool calls and human approval</strong></summary>
-
-![KitAgent approval view: inspect the pending tool and arguments, then approve or reject](docs/assets/equal-operator-approval.png)
-
-Choose Read-only, Ask as needed, or Auto-approve for a session. View and revoke remembered tool grants from the permission menu.
 
 </details>
 

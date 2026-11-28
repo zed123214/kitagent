@@ -2,46 +2,41 @@
 
 <h1>KitAgent</h1>
 
-<p><strong>面向算子开发与验证的开源 Agent 运行时</strong></p>
-<p>在工作台中审批代码修改、运行正确性测试，并对照基线查看性能。</p>
-
-<p><sub>对话驱动任务 · 实时工具追踪 · 人工审批 · 会话记忆 · Kubernetes 沙箱</sub></p>
+<p><strong>面向算子开发的开源 Coding Agent Harness</strong><br />在一次会话里修改算子、校验精度，并与基线配对测速。</p>
 
 <p>
   <a href="https://github.com/zed123214/kitagent/actions/workflows/ci.yml"><img src="https://github.com/zed123214/kitagent/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/zed123214/kitagent/stargazers"><img src="https://img.shields.io/github/stars/zed123214/kitagent?style=flat&logo=github" alt="GitHub stars" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12" /></a>
-  <a href="frontend/package.json"><img src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" alt="React 19" /></a>
-  <a href="docs/kubernetes-sandbox.md"><img src="https://img.shields.io/badge/Kubernetes-Sandbox-326CE5?logo=kubernetes&logoColor=white" alt="Kubernetes Sandbox" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-F5C542" alt="MIT License" /></a>
 </p>
 
 **中文** · [English](README.en.md)
 
-[Equal 演示](#demo) · [候选筛选](#operator-workflow) · [Ascend C 案例](#operator-demo) · [核心能力](#features) · [系统架构](#architecture) · [快速开始](#quick-start) · [文档导航](#docs)
-
-<p><a href="https://github.com/zed123214/kitagent"><strong>⭐ Star KitAgent</strong></a> · <a href="#quick-start">开始使用</a> · <a href="docs/architecture.md">阅读实现</a></p>
+[快速开始](#quick-start) · [候选筛选](#operator-workflow) · [Ascend C 案例](#operator-demo) · [运行时架构](#architecture)
 
 </div>
 
----
-
-以逐元素比较算子 Equal 为例。把一个标量和一列数比较时，可以只读一次标量，省去循环里反复计算下标的开销。改完之后，空输入和 NaN 的结果还对吗？哪些输入真的变快了？KitAgent 让你在同一次运行里查看写入的实现、测试输出和逐组计时，再导出开发报告。
-
-Web、CLI 和 TUI 共用一个 Core。你也可以把自己的源码、参考实现和测试命令交给模型，在同一会话里继续修改和验证。[运行时架构](docs/architecture.md)
-
 <a id="demo"></a>
 
-## 在工作台运行 Python Equal
+## 工作台演示
 
-这个离线示例用固定的模型响应写入一维 Python 实现。文件工具和测试命令在本机实际运行，每次演示都会重新测量 CPU 耗时。[本地运行步骤](docs/web-workbench.md#无-api-key-的真实工具演示)
+以 Python 算子 `Equal` 为例，查看候选代码如何处理标量广播、75 个用例如何校验输出，以及哪些输入在本轮 CPU 测速中更快。演示使用固定的模型响应，文件操作、测试和计时均在本机执行。
 
 ![KitAgent 算子开发演示：实现 Equal、审批测试、对比实测性能并导出报告](docs/assets/equal-operator-demo.gif)
 
-<p align="center">
-  Equal 算子开发 · 广播与边界验证 · 基线性能对比 · 开发报告<br />
-  <a href="docs/assets/equal-operator-overview.png">查看高清截图</a> · <a href="https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm">下载完整视频</a> · <a href="docs/web-workbench.md">启动工作台</a>
-</p>
+[运行本地演示](docs/web-workbench.md#无-api-key-的真实工具演示) · [高清截图](docs/assets/equal-operator-overview.png) · [完整视频](https://raw.githubusercontent.com/zed123214/kitagent/main/docs/assets/equal-operator-demo.webm)
+
+<details>
+<summary><strong>工具调用与人工审批 · 查看授权界面</strong></summary>
+
+![KitAgent 审批界面：查看待执行工具及参数，选择批准或拒绝](docs/assets/equal-operator-approval.png)
+
+工作台提供「只读 / 按需询问 / 自动批准」三种会话权限模式，并支持查看和撤销已记住的工具授权。
+
+</details>
+
+<details>
+<summary><strong>测试与测速方法 · 输入规模、采样方式与原始记录</strong></summary>
 
 | 要验证的问题 | 在这次运行中查看 |
 | --- | --- |
@@ -52,11 +47,7 @@ Web、CLI 和 TUI 共用一个 Core。你也可以把自己的源码、参考实
 
 [查看候选实现、参考实现与计时脚本](src/agent_runtime/web/demo_operator.py)
 
-### 工具调用与人工审批
-
-![KitAgent 审批界面：查看待执行工具及参数，选择批准或拒绝](docs/assets/equal-operator-approval.png)
-
-工作台提供「只读 / 按需询问 / 自动批准」三种会话权限模式，并支持查看和撤销已记住的工具授权。
+</details>
 
 <a id="operator-workflow"></a>
 
